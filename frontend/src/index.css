@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-html,body,#root{margin:0}
+html,body,#root{margin:0;min-height:100%}
 html{color-scheme:light}
 img{max-width:100%}
 [hidden]{display:none!important}
@@ -29,10 +29,10 @@ h1,h2,h3{margin:0;font-weight:700;letter-spacing:-.01em;text-wrap:balance}
 p{margin:0}
 .num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
 
-.shell{display:grid;grid-template-columns:var(--rail) minmax(0,1fr);min-height:100vh;
+.shell{display:grid;grid-template-columns:var(--rail) minmax(0,1fr);min-height:100vh;min-height:100dvh;
   padding-left:max(0px,env(safe-area-inset-left,0px));padding-right:max(0px,env(safe-area-inset-right,0px))}
 .rail{background:var(--paper);border-right:1px solid var(--line);padding:22px 18px;display:flex;flex-direction:column;gap:26px;
-  position:sticky;top:env(safe-area-inset-top,0px);align-self:start;height:100vh;overflow:auto}
+  position:sticky;top:env(safe-area-inset-top,0px);align-self:start;height:100vh;height:100dvh;overflow:auto}
 .brand{font-weight:800;font-size:30px;letter-spacing:-.04em;line-height:1}
 .brand small{display:block;font-size:12px;font-weight:500;letter-spacing:0;color:var(--ink2);margin-top:6px}
 .nav{display:flex;flex-direction:column;gap:2px}
@@ -194,6 +194,7 @@ details.faq p{margin-top:8px;color:var(--ink2);font-size:14px}
 .qa .q{font-size:17px;font-weight:700}
 .qa .opts{display:flex;gap:8px;flex-wrap:wrap}
 .qa .res{padding:12px;background:var(--ok-soft);border-radius:3px}
+.tinyml-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,2fr);gap:20px}
 
 @media (max-width:1100px){.ov{grid-template-columns:minmax(0,1fr)}.sup{grid-template-columns:minmax(0,1fr)}}
 @media (max-width:900px){
@@ -209,13 +210,27 @@ details.faq p{margin-top:8px;color:var(--ink2);font-size:14px}
   .chat-widget{right:max(14px,env(safe-area-inset-right,0px));bottom:max(14px,env(safe-area-inset-bottom,0px))}
   .chat-launcher{width:54px;height:54px}
   .chat-window{right:-2px;bottom:66px;width:min(380px,calc(100vw - 24px));height:min(520px,calc(100dvh - 96px))}
-  .stage{height:380px}.stage.big{height:440px}
+  .stage{height:380px;height:min(380px,50dvh)}.stage.big{height:440px;height:min(440px,58dvh)}
   .cards{grid-template-columns:1fr 1fr}
   .rd .v{font-size:25px}
   .tag{font-size:10.5px;padding:2px 5px}
   .tag span{display:none}
   .alert dl{grid-template-columns:minmax(0,1fr)}
   .pagehead h1{font-size:23px}
+}
+@media (max-width:700px){
+  .tinyml-grid{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:900px) and (orientation:landscape) and (max-height:560px){
+  .rail{display:grid;grid-template-columns:minmax(132px,auto) minmax(0,1fr);align-items:center;gap:8px 14px;padding-top:max(8px,env(safe-area-inset-top,0px));padding-bottom:max(8px,env(safe-area-inset-bottom,0px))}
+  .brand{grid-column:1;grid-row:1;font-size:24px}
+  .nav{grid-column:2;grid-row:1 / span 2;min-width:0;align-content:center;gap:2px}
+  .nav a{padding:7px 8px}
+  .rail>div:not(.dev):not(.rail-foot){grid-column:1;grid-row:2;min-width:0}
+  .rail-foot,.dev{display:none}
+  .main{padding-top:10px;padding-bottom:max(20px,env(safe-area-inset-bottom,0px))}
+  .stage{height:clamp(210px,58vh,340px);height:clamp(210px,58dvh,340px)}
+  .stage.big{height:clamp(250px,72vh,400px);height:clamp(250px,72dvh,400px)}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 
