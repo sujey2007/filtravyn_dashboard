@@ -34,7 +34,7 @@ export function DigitalTwin() {
   return (
     <>
       <PageHead title="Digital twin">
-        Component state drawn on the water path. Load your own GLB to replace the placeholder.
+        Component state on the water path. Load your SolidWorks model to replace the schematic.
       </PageHead>
       <div className="ov">
         <div className="panel">
@@ -68,9 +68,9 @@ export function DigitalTwin() {
                   ? `Could not load this model: ${m.error}`
                   : m.modelUrl
                     ? `Loaded ${m.fileName ?? 'model'}. Water animation is off because no pipe route is mapped.`
-                    : 'No model loaded. The schematic shows only the order of the water path. Positions and shapes are not your product.'}
+                    : 'No model loaded. The schematic shows the component sequence only; its shapes and positions do not represent the product.'}
               </div>
-              <button className="btn ghost" onClick={m.clear}>Back to placeholder</button>
+              <button className="btn ghost" onClick={m.clear}>Restore schematic</button>
             </div>
           </div>
           <div className="panel">

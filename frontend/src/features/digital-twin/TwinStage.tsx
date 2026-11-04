@@ -19,20 +19,21 @@ export function TwinStage({ big = false, showRotate = false }: { big?: boolean; 
 
   return (
     <div className={'stage' + (big ? ' big' : '')}>
-      <Twin
-        states={states}
-        flowLpm={animate ? flow : null}
-        selected={selected}
-        onSelect={select}
-        resetSignal={resetSignal}
-        autoRotate={rotate}
-        modelUrl={model.modelUrl}
-        mapping={model.mapping}
-        pipeRoute={model.pipeRoute}
-        onMeshNames={model.setMeshNames}
-        onModelError={(m) => model.setError(m)}
-      />
-      {!model.modelUrl && <div className="stage-note">Placeholder schematic. Awaiting SolidWorks design.</div>}
+      <div className="stage-viewport">
+        <Twin
+          states={states}
+          flowLpm={animate ? flow : null}
+          selected={selected}
+          onSelect={select}
+          resetSignal={resetSignal}
+          autoRotate={rotate}
+          modelUrl={model.modelUrl}
+          mapping={model.mapping}
+          pipeRoute={model.pipeRoute}
+          onMeshNames={model.setMeshNames}
+          onModelError={(m) => model.setError(m)}
+        />
+      </div>
       <div className="stage-tools">
         <button className="btn ghost sm" onClick={() => setResetSignal((n) => n + 1)}>
           Reset view
@@ -43,7 +44,7 @@ export function TwinStage({ big = false, showRotate = false }: { big?: boolean; 
           </button>
         )}
       </div>
-      <div className="tagline" style={{ position: 'absolute', right: 12, bottom: 10, background: 'rgba(255,255,255,.85)', padding: '3px 8px', border: '1px solid var(--line2)', borderRadius: 2 }}>
+      <div className="stage-state">
         {mode === 'simulation' ? 'Simulated state' : 'Device state'}
       </div>
       <Legend />

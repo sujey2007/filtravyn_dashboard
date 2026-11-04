@@ -78,7 +78,7 @@ p{margin:0}
 .tagline{font-size:12px;color:var(--ink2)}
 
 .ov{display:grid;grid-template-columns:minmax(0,1.75fr) minmax(300px,1fr);gap:16px;align-items:start}
-.stage{position:relative;height:500px;overflow:hidden;background:linear-gradient(180deg,#F4F7F8 0%,#E6ECEF 100%);border-bottom:1px solid var(--line2)}
+.stage{position:relative;height:500px;overflow:hidden;background:#151515;border-radius:12px}
 .stage.big{height:600px}
 .stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
 .tags{position:absolute;inset:0;pointer-events:none;overflow:hidden}
@@ -86,10 +86,10 @@ p{margin:0}
 .tag b{display:block;font-weight:700}
 .tag span{font-family:var(--f-num);color:var(--ink2);font-size:11px}
 .tag.sel{border-color:var(--blue);background:var(--blue-soft)}
-.stage-note{position:absolute;left:12px;top:12px;max-width:min(360px,calc(100% - 24px));background:var(--paper);border:1px solid #E3C98E;border-radius:2px;padding:6px 9px;font-size:12px;color:var(--warn)}
 .stage-tools{position:absolute;right:12px;top:12px;display:flex;gap:6px}
 .stage-tools .btn{padding:5px 9px;font-size:12.5px}
-.legend{position:absolute;left:12px;bottom:10px;display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--ink2);background:rgba(255,255,255,.85);padding:5px 9px;border:1px solid var(--line2);border-radius:2px;max-width:calc(100% - 24px)}
+.stage-state{position:absolute;right:16px;bottom:13px;font-size:12px;color:#BEC2B9}
+.legend{position:absolute;left:16px;bottom:10px;display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:#BEC2B9;padding:5px 0;max-width:calc(100% - 32px)}
 .legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:-1px}
 .legend .ring{background:transparent;border:2px solid var(--blue);border-radius:2px}
 .nogl{position:absolute;inset:0;display:grid;place-items:center;padding:24px;text-align:center;color:var(--ink2)}
@@ -210,7 +210,8 @@ details.faq p{margin-top:8px;color:var(--ink2);font-size:14px}
   .chat-widget{right:max(14px,env(safe-area-inset-right,0px));bottom:max(14px,env(safe-area-inset-bottom,0px))}
   .chat-launcher{width:54px;height:54px}
   .chat-window{right:-2px;bottom:66px;width:min(380px,calc(100vw - 24px));height:min(520px,calc(100dvh - 96px))}
-  .stage{height:380px;height:min(380px,50dvh)}.stage.big{height:440px;height:min(440px,58dvh)}
+  .stage{height:420px;height:min(420px,55dvh)}.stage.big{height:480px;height:min(480px,62dvh)}
+  .stage-viewport{inset:12px 3% 66px}
   .cards{grid-template-columns:1fr 1fr}
   .rd .v{font-size:25px}
   .tag{font-size:10.5px;padding:2px 5px}
@@ -231,11 +232,13 @@ details.faq p{margin-top:8px;color:var(--ink2);font-size:14px}
   .main{padding-top:10px;padding-bottom:max(20px,env(safe-area-inset-bottom,0px))}
   .stage{height:clamp(210px,58vh,340px);height:clamp(210px,58dvh,340px)}
   .stage.big{height:clamp(250px,72vh,400px);height:clamp(250px,72dvh,400px)}
+  .stage-viewport{inset:12px 3% 50px}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 
 /* React port additions */
 .tag.inline{position:static;transform:none;pointer-events:none}
+.stage-viewport{position:absolute;inset:16px 4% 58px;overflow:hidden;background:#EDF2F5;border-radius:12px}
 .stage .r3f{position:absolute;inset:0}
 .stage .r3f canvas{touch-action:none}
 .btn.sm{padding:5px 9px;font-size:12.5px}
