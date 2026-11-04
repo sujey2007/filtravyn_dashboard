@@ -1,0 +1,912 @@
+<title>FiltraVyn Dashboard</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Azeret+Mono:wght@400;500;600&family=Schibsted+Grotesk:wght@400;500;600;700;800&display=swap">
+<style>
+/* Layout concept: bench console. A fixed left rail names the device and holds the mode switch;
+   the working area is a 3D schematic stage with readings alongside, then flat instrument panels. */
+:root{
+  --stone:#E3E8EB; --sheet:#F2F5F6; --paper:#FFFFFF;
+  --ink:#0F2230; --ink2:#46596A; --line:#C3CDD3; --line2:#DAE1E5;
+  --blue:#2A3FD8; --blue-soft:#DCE1FA;
+  --ok:#177A4E; --ok-soft:#D8EEE3; --warn:#94590A; --warn-soft:#F6E6C6;
+  --crit:#B52A25; --crit-soft:#F5D8D6; --na:#6F808B; --na-soft:#E7ECEF;
+  --c-tds:#2A3FD8; --c-temp:#0E7C86; --c-flow:#6B3FA0;
+  --f-ui:'Schibsted Grotesk',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --f-num:'Azeret Mono',ui-monospace,'SF Mono',Menlo,monospace;
+  --rail:232px;
+}
+*{box-sizing:border-box}
+body{background:var(--stone);color:var(--ink);font:15px/1.5 var(--f-ui);padding-block:0}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+h1,h2,h3{margin:0;font-weight:700;letter-spacing:-.01em;text-wrap:balance}
+p{margin:0}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+
+.shell{display:grid;grid-template-columns:var(--rail) minmax(0,1fr);min-height:100vh;
+  padding-left:max(0px,env(safe-area-inset-left,0px));padding-right:max(0px,env(safe-area-inset-right,0px))}
+.rail{background:var(--paper);border-right:1px solid var(--line);padding:22px 18px;display:flex;flex-direction:column;gap:26px;
+  position:sticky;top:env(safe-area-inset-top,0px);align-self:start;height:100vh;overflow:auto}
+.brand{font-weight:800;font-size:30px;letter-spacing:-.04em;line-height:1}
+.brand small{display:block;font-size:12px;font-weight:500;letter-spacing:0;color:var(--ink2);margin-top:6px}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav a{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:3px;color:var(--ink2);text-decoration:none;font-weight:600}
+.nav a::before{content:"";width:7px;height:7px;border:1.5px solid var(--line);background:transparent;flex:none}
+.nav a:hover{background:var(--sheet);color:var(--ink)}
+.nav a[aria-current=page]{background:var(--blue-soft);color:var(--ink)}
+.nav a[aria-current=page]::before{background:var(--blue);border-color:var(--blue)}
+.dev{border-top:1px solid var(--line2);padding-top:16px;display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--ink2)}
+.dev b{color:var(--ink);font-family:var(--f-num);font-weight:500;font-size:12.5px}
+.seg{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:3px;overflow:hidden}
+.seg button{border:0;background:var(--paper);padding:8px 6px;font-weight:600;font-size:13px;color:var(--ink2)}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed=true]{background:var(--ink);color:#fff}
+.rail-foot{margin-top:auto;font-size:12px;color:var(--ink2);line-height:1.45}
+
+.main{min-width:0;padding:18px 24px 40px;padding-left:max(24px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:16px}
+.banner{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:10px 14px;border:1px solid;border-radius:3px;font-size:14px}
+.banner.sim{background:var(--blue-soft);border-color:#B6BFF0}
+.banner.live{background:var(--warn-soft);border-color:#E3C98E}
+.banner strong{font-weight:700}
+.btn{border:1px solid var(--ink);background:var(--ink);color:#fff;border-radius:3px;padding:7px 12px;font-weight:600;font-size:13.5px}
+.btn.ghost{background:var(--paper);color:var(--ink);border-color:var(--line)}
+.btn.ghost:hover{border-color:var(--ink)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.pagehead{display:flex;justify-content:space-between;align-items:end;gap:12px;flex-wrap:wrap}
+.pagehead h1{font-size:28px}
+.pagehead p{color:var(--ink2);max-width:60ch}
+
+.panel{background:var(--paper);border:1px solid var(--line);border-radius:3px;min-width:0}
+.ph{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:11px 14px;border-bottom:1px solid var(--line2)}
+.ph h2{font-size:14.5px}
+.pb{padding:14px}
+.muted{color:var(--ink2)}
+.small{font-size:13px}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:2px 8px;border-radius:2px;font-size:12px;font-weight:700;white-space:nowrap}
+.pill::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.pill.ok{background:var(--ok-soft);color:var(--ok)}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+.pill.crit{background:var(--crit-soft);color:var(--crit)}
+.pill.na{background:var(--na-soft);color:var(--na)}
+.pill.info{background:var(--blue-soft);color:var(--blue)}
+.tagline{font-size:12px;color:var(--ink2)}
+
+.ov{display:grid;grid-template-columns:minmax(0,1.75fr) minmax(300px,1fr);gap:16px;align-items:start}
+.stage{position:relative;height:500px;overflow:hidden;background:linear-gradient(180deg,#F4F7F8 0%,#E6ECEF 100%);border-bottom:1px solid var(--line2)}
+.stage.big{height:600px}
+.stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.tags{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.tag{position:absolute;transform:translate(-50%,-100%);background:var(--paper);border:1px solid var(--line);border-radius:2px;padding:3px 7px;font-size:11.5px;line-height:1.3;white-space:nowrap;text-align:left}
+.tag b{display:block;font-weight:700}
+.tag span{font-family:var(--f-num);color:var(--ink2);font-size:11px}
+.tag.sel{border-color:var(--blue);background:var(--blue-soft)}
+.stage-note{position:absolute;left:12px;top:12px;max-width:min(360px,calc(100% - 24px));background:var(--paper);border:1px solid #E3C98E;border-radius:2px;padding:6px 9px;font-size:12px;color:var(--warn)}
+.stage-tools{position:absolute;right:12px;top:12px;display:flex;gap:6px}
+.stage-tools .btn{padding:5px 9px;font-size:12.5px}
+.legend{position:absolute;left:12px;bottom:10px;display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--ink2);background:rgba(255,255,255,.85);padding:5px 9px;border:1px solid var(--line2);border-radius:2px;max-width:calc(100% - 24px)}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+.legend .ring{background:transparent;border:2px solid var(--blue);border-radius:2px}
+.nogl{position:absolute;inset:0;display:grid;place-items:center;padding:24px;text-align:center;color:var(--ink2)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;padding:10px 14px}
+.chip{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);background:var(--paper);border-radius:2px;padding:6px 10px;font-weight:600;font-size:13px}
+.chip[aria-pressed=true]{border-color:var(--blue);background:var(--blue-soft)}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--na);flex:none}
+.dot.ok{background:var(--ok)}.dot.warn{background:#D79A1B}.dot.crit{background:var(--crit)}.dot.na{background:transparent;border:2px solid var(--na)}
+.info{padding:2px 14px 14px;display:grid;gap:8px}
+.info h3{font-size:16px}
+.info ul{margin:0;padding-left:18px;color:var(--ink2);font-size:14px}
+
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.rd{background:var(--paper);border:1px solid var(--line);border-radius:3px;padding:12px 14px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.rd .lb{font-size:13px;font-weight:600;color:var(--ink2)}
+.rd .v{font-family:var(--f-num);font-size:32px;font-weight:500;letter-spacing:-.03em;line-height:1.1;font-variant-numeric:tabular-nums}
+.rd .v small{font-size:13px;color:var(--ink2);margin-left:4px;letter-spacing:0}
+.rd .v.words{font-family:var(--f-ui);font-size:18px;font-weight:700;letter-spacing:-.01em;padding:5px 0}
+.rd .row{display:flex;justify-content:space-between;gap:6px;align-items:center;flex-wrap:wrap}
+.span2{grid-column:1/-1}
+.col{display:flex;flex-direction:column;gap:16px;min-width:0}
+.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+
+.list{display:flex;flex-direction:column}
+.li{padding:10px 14px;border-bottom:1px solid var(--line2);display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap}
+.li:last-child{border-bottom:0}
+.li .t{font-family:var(--f-num);font-size:12px;color:var(--ink2);min-width:64px;padding-top:2px}
+.empty{padding:22px 14px;color:var(--ink2);font-size:14px}
+
+.bench{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px 18px;padding:14px}
+.fld{display:flex;flex-direction:column;gap:5px;font-size:13px;font-weight:600;color:var(--ink2)}
+.fld input[type=range]{width:100%;accent-color:var(--blue)}
+.fld select,.fld input[type=number],.fld input[type=text],.fld input[type=date],textarea{border:1px solid var(--line);border-radius:3px;padding:7px 8px;background:var(--paper);color:var(--ink);font-weight:500}
+.chk{display:flex;gap:8px;align-items:center;font-size:13.5px;font-weight:600;color:var(--ink)}
+.chk input{width:16px;height:16px;accent-color:var(--blue)}
+
+.alert{padding:14px;border-bottom:1px solid var(--line2);display:grid;gap:8px}
+.alert:last-child{border-bottom:0}
+.alert h3{font-size:15.5px}
+.alert dl{display:grid;grid-template-columns:110px minmax(0,1fr);gap:4px 12px;margin:0;font-size:14px}
+.alert dt{color:var(--ink2);font-weight:600}
+.alert dd{margin:0}
+.alert ul{margin:0;padding-left:18px}
+
+.rangebar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.rangebar .seg{grid-template-columns:repeat(4,auto)}
+.rangebar .seg button{padding:7px 14px}
+.sensors{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.sc .head{display:flex;justify-content:space-between;gap:8px;align-items:start;flex-wrap:wrap;padding:12px 14px 0}
+.sc .head h2{font-size:15px}
+.sc .big{font-family:var(--f-num);font-size:30px;font-weight:500;letter-spacing:-.03em}
+.sc .big small{font-size:13px;color:var(--ink2);letter-spacing:0;margin-left:4px}
+.stats{display:flex;gap:18px;flex-wrap:wrap;padding:6px 14px 0;font-size:13px;color:var(--ink2)}
+.stats b{font-family:var(--f-num);font-weight:500;color:var(--ink)}
+.chart{padding:6px 8px 10px}
+.chart svg{display:block;width:100%;height:auto}
+.gl{stroke:var(--line2);stroke-width:1}
+.axt{fill:var(--ink2);font:11px var(--f-num)}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{padding:7px 12px;text-align:left;border-bottom:1px solid var(--line2);white-space:nowrap}
+th{font-weight:700;color:var(--ink2);background:var(--sheet);position:sticky;top:0}
+td.n{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+textarea.csv{width:100%;min-height:120px;font-family:var(--f-num);font-size:12px;white-space:pre;resize:vertical}
+
+.tabs{display:flex;gap:2px;flex-wrap:wrap;padding:8px 10px;border-bottom:1px solid var(--line2);background:var(--sheet)}
+.tabs button{border:0;background:transparent;padding:7px 12px;font-weight:600;color:var(--ink2);border-radius:3px}
+.tabs button[aria-selected=true]{background:var(--paper);color:var(--ink);box-shadow:inset 0 -2px 0 var(--blue)}
+.sup{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:16px;align-items:start}
+.chatlog{display:flex;flex-direction:column;gap:8px;padding:14px;max-height:380px;overflow:auto;background:var(--sheet)}
+.msg{max-width:88%;padding:8px 11px;border-radius:3px;font-size:14px;border:1px solid var(--line)}
+.msg.u{align-self:flex-end;background:var(--ink);color:#fff;border-color:var(--ink)}
+.msg.a{align-self:flex-start;background:var(--paper)}
+.chatin{display:flex;gap:8px;padding:10px 14px;border-top:1px solid var(--line2)}
+.chatin input{flex:1;min-width:0;border:1px solid var(--line);border-radius:3px;padding:8px 10px;background:var(--paper)}
+.sug{display:flex;gap:6px;flex-wrap:wrap;padding:0 14px 12px}
+.sug button{border:1px solid var(--line);background:var(--paper);border-radius:2px;padding:4px 9px;font-size:12.5px;font-weight:600}
+details.faq{border-bottom:1px solid var(--line2);padding:10px 14px}
+details.faq summary{font-weight:600;cursor:pointer}
+details.faq p{margin-top:8px;color:var(--ink2);font-size:14px}
+.steps{margin:0;padding:0 14px 14px 36px;display:grid;gap:8px}
+.safety{margin:14px;padding:10px 12px;border:1px solid #E3C98E;background:var(--warn-soft);border-radius:3px;font-size:14px}
+.qa{padding:14px;display:grid;gap:12px}
+.qa .q{font-size:17px;font-weight:700}
+.qa .opts{display:flex;gap:8px;flex-wrap:wrap}
+.qa .res{padding:12px;background:var(--ok-soft);border-radius:3px}
+
+@media (max-width:1100px){.ov{grid-template-columns:minmax(0,1fr)}.sup{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:900px){
+  .shell{grid-template-columns:minmax(0,1fr)}
+  .rail{position:static;height:auto;flex-direction:column;gap:14px;border-right:0;border-bottom:1px solid var(--line);padding:14px max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+  .nav{flex-direction:row;overflow-x:auto}
+  .nav a{white-space:nowrap}
+  .rail-foot,.dev{display:none}
+  .main{padding:14px 16px 32px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+  .sensors,.two{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:560px){
+  .stage{height:380px}.stage.big{height:440px}
+  .cards{grid-template-columns:1fr 1fr}
+  .rd .v{font-size:25px}
+  .tag{font-size:10.5px;padding:2px 5px}
+  .tag span{display:none}
+  .alert dl{grid-template-columns:minmax(0,1fr)}
+  .pagehead h1{font-size:23px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+
+<div class="shell">
+  <aside class="rail">
+    <div class="brand">FiltraVyn<small>Water purifier console</small></div>
+    <nav class="nav" aria-label="Main">
+      <a href="#overview" data-p="overview">Overview</a>
+      <a href="#twin" data-p="twin">Digital twin</a>
+      <a href="#analytics" data-p="analytics">Sensor analytics</a>
+      <a href="#alerts" data-p="alerts">Alerts and diagnostics</a>
+      <a href="#support" data-p="support">Support and DIY</a>
+    </nav>
+    <div class="dev" aria-live="off">
+      <span>Device</span><b id="r-dev">filtravyn-001</b>
+      <span>Connection</span><span id="r-conn">Simulation</span>
+      <span>Last update (<span id="r-tz">local</span>)</span><b id="r-last">—</b>
+    </div>
+    <div>
+      <div class="tagline" style="margin-bottom:6px">Data source</div>
+      <div class="seg" role="group" aria-label="Data source">
+        <button id="m-sim" data-act="mode-sim" aria-pressed="true">Simulation</button>
+        <button id="m-live" data-act="mode-live" aria-pressed="false">Live device</button>
+      </div>
+    </div>
+    <div class="rail-foot">TDS and temperature cannot show that water is safe to drink. This console is a monitoring aid.</div>
+  </aside>
+  <main class="main">
+    <div id="banner"></div>
+    <div id="view"></div>
+  </main>
+</div>
+
+<script>
+(function(){
+'use strict';
+/* ---------- helpers ---------- */
+const $=(s,r)=>(r||document).querySelector(s);
+const $$=(s,r)=>[...(r||document).querySelectorAll(s)];
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad=n=>String(n).padStart(2,'0');
+const TZ=(()=>{try{return Intl.DateTimeFormat().resolvedOptions().timeZone||'local'}catch(e){return 'local'}})();
+const fmtT=t=>{const d=new Date(t);return pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds())};
+const fmtD=t=>{const d=new Date(t);return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+' '+fmtT(t)};
+const fv=(v,d)=>v==null?'—':v.toFixed(d==null?1:d);
+
+/* ---------- configuration (placeholders until calibrated) ---------- */
+const CFG={deviceId:'filtravyn-001',staleTimeoutS:15,startupDelayS:10,flowMinLpm:0.2,tdsWarnHigh:500,tempMin:5,tempMax:40,
+  tdsRange:[0,1000],tempRange:[-10,85],flowRange:[0,6],flowKFactor:null};
+
+/* ---------- component catalogue (schematic symbols, not product geometry) ---------- */
+const COMP=[
+ {id:'tank',name:'Raw-water tank',short:'Tank',kind:'tank',x:-7.2,z:0,hw:.85,
+  facts:['Source reservoir at the start of the water path.','No level sensor is in the current hardware list, so no level is shown.','Real size and position come from your SolidWorks model.']},
+ {id:'pump',name:'Diaphragm pump',short:'Pump',kind:'pump',x:-4.4,z:1.5,hw:.65,
+  facts:['24 V DC. The label reads 0.33 A and about 1.6 L/min (label values, not measured).','Switched by the four-channel relay board. The pump is the intended load.','Control is read-only here until a confirmed command path exists.']},
+ {id:'filter',name:'Sediment filter',short:'Filter',kind:'filter',x:-1.6,z:-.6,hw:.5,
+  facts:['PP spun sediment cartridge.','Remaining life is not estimated. No validated method is implemented, and elapsed time alone is not evidence of filter condition.']},
+ {id:'flowSensor',name:'Flow sensor',short:'Flow sensor',kind:'flow',x:1.1,z:1.4,hw:.45,
+  facts:['Three-wire pulse-type sensor. Your CAD brief names a ZJ-S401; verify the model and pinout.','K-factor is not set. Flow values are placeholders until calibrated against measured volume over time.']},
+ {id:'cell',name:'Measurement chamber',short:'Chamber',kind:'cell',x:3.8,z:-.2,hw:.75,
+  facts:['TDS Meter V1.0 probe reports ppm.','Temperature probe reports °C. Your dashboard brief says DS18B20 and your CAD brief says NTC 10 kΩ. Confirm which is installed.','Turbidity sensor is not installed. The dashed probe is a placeholder and no NTU value exists.']},
+ {id:'outlet',name:'Clean-water outlet',short:'Outlet',kind:'outlet',x:6.7,z:1.0,hw:.4,
+  facts:['End of the water path.','Not monitored. A TDS reading alone does not make this water safe to drink.']}
+];
+const COMPBYID=Object.fromEntries(COMP.map(c=>[c.id,c]));
+
+/* ---------- telemetry generation ---------- */
+const T0=Date.now();
+const rnd=n=>{const x=Math.sin(n*127.1+311.7)*43758.5453;return x-Math.floor(x)};
+const baseTds=t=>238+16*Math.sin(t/21600e3)+7*Math.sin(t/1.1e6)+(rnd(Math.floor(t/60e3))-.5)*6;
+const baseTemp=t=>{const d=new Date(t);const h=d.getHours()+d.getMinutes()/60;return 28.6+1.9*Math.sin((h-9)/24*2*Math.PI)+(rnd(Math.floor(t/60e3)+999)-.5)*.3};
+const histPumpOn=t=>rnd(Math.floor(t/(25*60e3))+7)<.5;
+function mk(t,mode,tds,temp,flow,cmd,ps,st){
+  return {device_id:CFG.deviceId,timestamp:new Date(t).toISOString(),t:t,mode:mode,
+    tds_ppm:tds==null?null:Math.round(tds),temperature_c:temp==null?null:Math.round(temp*10)/10,
+    flow_lpm:flow==null?null:Math.round(flow*100)/100,turbidity_ntu:null,
+    pump_commanded:cmd,pump_state:ps,
+    sensor_status:{tds:st.tds,temperature:st.temperature,flow:st.flow,turbidity:'not_installed'}};
+}
+function histRow(t){const on=histPumpOn(t);const f=on?1.15+rnd(Math.floor(t/5e3)+3)*.2:0;
+  return mk(t,'simulation',baseTds(t),baseTemp(t),f,on,on?'on':'off',{tds:'valid',temperature:'valid',flow:'valid'})}
+
+const DEF_SIM=()=>({pump:true,flow:1.2,pumpFault:false,blocked:false,ghost:false,tdsOffset:0,tempOffset:0,frozen:false,
+  dis:{tds:'ok',temperature:'ok',flow:'ok'},pumpSince:Date.now()-3600e3});
+const S={mode:'simulation',page:'overview',sim:DEF_SIM(),buf:[],last:null,lastStore:0,vol:0,alerts:[],seen:{},events:[],
+  selected:'pump',range:'1h',tickN:0,supTab:'chat',tree:null,glb:null,
+  log:[{d:'2026-10-12',type:'Filter replaced',note:'Example entry. Replace with your own records.',ex:true},
+       {d:'2026-10-26',type:'Sensor cleaned',note:'Example entry. Rinsed TDS probe in clean water.',ex:true}]};
+let TWIN=null;
+
+function simRow(t){
+  const s=S.sim,st={tds:'valid',temperature:'valid',flow:'valid'};
+  let tds=baseTds(t)+s.tdsOffset,temp=baseTemp(t)+s.tempOffset,flow;
+  const el=(t-s.pumpSince)/1000,nz=(rnd(Math.floor(t/1000))-.5)*.05;
+  if(s.pump&&!s.blocked)flow=s.flow*Math.min(1,el/3)+nz;
+  else if(!s.pump&&s.ghost)flow=.6+nz;
+  else flow=0;
+  flow=Math.max(0,flow);
+  const bad=(k,c)=>{if(s.dis[k]!=='ok'){st[k]=s.dis[k]==='off'?'disconnected':'out_of_range';return null}return c};
+  tds=bad('tds',tds);temp=bad('temperature',temp);flow=bad('flow',flow);
+  const ps=s.pump?(s.pumpFault?'fault':'on'):'off';
+  return mk(t,'simulation',tds,temp,flow,s.pump,ps,st);
+}
+function logEvent(text,kind){S.events.unshift({t:Date.now(),text:text,kind:kind||'info'});if(S.events.length>80)S.events.pop()}
+
+/* ---------- alerts: transparent rules ---------- */
+function A(key,sev,title,detected,trigger,basis,checks){return{key:key,sev:sev,title:title,detected:detected,trigger:trigger,basis:basis,checks:checks}}
+function computeAlerts(now){
+  const out=[],r=S.last;
+  if(S.mode==='live'||!r){
+    out.push(A('nolive','warn','No live data','Live Device Mode is on, but no telemetry has been received.','Device connection state','confirmed',
+      ['Confirm the ESP32-S3 is powered and on Wi-Fi.','Confirm the backend or MQTT bridge is running. None is connected to this page.','Switch to Simulation to demo the interface.']));
+    out.push(turbInfo());finish(out,now);return;
+  }
+  const age=(now-r.t)/1000;
+  if(age>CFG.staleTimeoutS){
+    const off=age>CFG.staleTimeoutS*4;
+    out.push(A('stale',off?'crit':'warn',off?'Device offline':'Telemetry stale','No new telemetry for '+Math.round(age)+' s (timeout '+CFG.staleTimeoutS+' s).',
+      'Last message at '+fmtT(r.t)+' '+TZ,'confirmed',
+      ['Check ESP32-S3 power and Wi-Fi signal.','Check the broker or bridge is reachable.','Pump and flow rules are paused because the last data may be outdated. Cause of the silence is not known.']));
+  }else{
+    ['tds','temperature','flow'].forEach(k=>{const st=r.sensor_status[k];
+      if(st!=='valid'){const nm={tds:'TDS',temperature:'Temperature',flow:'Flow'}[k];
+        out.push(A('sensor-'+k,'warn',nm+' sensor '+(st==='disconnected'?'disconnected':'reading invalid'),
+          'Sensor reports status "'+st+'". The value is shown as unavailable, not zero.',nm+' sensor status','confirmed',
+          ['Check the sensor cable and connector.','Check the sensor is in water where required.','Verify supply voltage at the sensor. The cause is not known from software alone.']))}});
+    const fOk=r.sensor_status.flow==='valid';
+    const since=(now-S.sim.pumpSince)/1000;
+    if(fOk&&r.pump_commanded&&since>CFG.startupDelayS&&r.flow_lpm<CFG.flowMinLpm)
+      out.push(A('pump-noflow','warn','Pump on, no flow detected','Pump has been commanded on for '+Math.round(since)+' s, but flow is '+fv(r.flow_lpm,2)+' L/min.',
+        'pump_commanded = true, flow_lpm < '+CFG.flowMinLpm+' after '+CFG.startupDelayS+' s startup delay','possible',
+        ['Check tank level and pump prime.','Look for kinked tubing or a clogged cartridge, with power isolated.','Check flow sensor direction and cable.','Possible causes only. This rule cannot tell which one applies.']));
+    if(fOk&&!r.pump_commanded&&r.flow_lpm>=CFG.flowMinLpm)
+      out.push(A('flow-pumpoff','warn','Flow while pump is off','Flow reads '+fv(r.flow_lpm,2)+' L/min with the pump commanded off.',
+        'pump_commanded = false, flow_lpm >= '+CFG.flowMinLpm,'possible',
+        ['Check for siphoning or gravity flow through the path.','Check the flow sensor for noise or a stuck pulse line.','Check the relay is actually opening.']));
+    if(r.pump_state==='fault')
+      out.push(A('pump-fault','crit','Pump reports a fault','The device reports pump_state = fault.','pump_state','confirmed',
+        ['Switch off and isolate 24 V power before inspecting.','Check wiring and relay output.','Check for a seized diaphragm or blocked outlet.']));
+    if(r.tds_ppm!=null&&r.tds_ppm>CFG.tdsWarnHigh)
+      out.push(A('tds-high','warn','TDS above project threshold','TDS reads '+r.tds_ppm+' ppm, above the '+CFG.tdsWarnHigh+' ppm review threshold.','tds_ppm','confirmed',
+        ['Rinse and re-seat the TDS probe, then re-read.','Compare with a handheld meter.','This is a prompt to review. It is not a drinking-water judgement, and the threshold is an uncalibrated placeholder.']));
+    if(r.temperature_c!=null&&(r.temperature_c>CFG.tempMax||r.temperature_c<CFG.tempMin))
+      out.push(A('temp-range','warn','Temperature outside project range','Water temperature is '+fv(r.temperature_c)+' °C. Range set to '+CFG.tempMin+' to '+CFG.tempMax+' °C.','temperature_c','confirmed',
+        ['Check probe placement.','Compare with a reference thermometer.','Range is a placeholder and not a safety limit.']));
+  }
+  out.push(turbInfo());finish(out,now);
+}
+function turbInfo(){return A('turb','info','Turbidity sensor not installed','Turbidity is unavailable. No NTU value is shown or estimated.','sensor_status.turbidity = not_installed','confirmed',
+  ['Informational only. This is not a water-quality fault.','Values will appear once a sensor is installed and reporting valid data.'])}
+function finish(out,now){
+  const keys=new Set(out.map(a=>a.key));
+  out.forEach(a=>{if(!S.seen[a.key]){S.seen[a.key]=now;if(a.key!=='turb')logEvent('Raised: '+a.title,a.sev)}a.t=S.seen[a.key]});
+  Object.keys(S.seen).forEach(k=>{if(!keys.has(k)){const was=S.alerts.find(a=>a.key===k);delete S.seen[k];if(was)logEvent('Cleared: '+was.title,'ok')}});
+  const ord={crit:0,warn:1,info:2};out.sort((a,b)=>ord[a.sev]-ord[b.sev]);S.alerts=out;
+}
+
+/* ---------- component state ---------- */
+function compState(){
+  const r=S.last,live=S.mode==='live'||!r;const R={};
+  const na=l=>({st:'na',label:l,val:''});
+  if(live){COMP.forEach(c=>R[c.id]=na('No data'));return R}
+  const stale=(Date.now()-r.t)/1000>CFG.staleTimeoutS;
+  const has=k=>S.alerts.some(a=>a.key===k);
+  R.tank=na('No sensor');R.filter=na('Not estimated');R.outlet=na('Not monitored');
+  let p={st:'ok',label:r.pump_state==='on'?'On':'Off',val:r.pump_state==='on'?'running':'idle'};
+  if(r.pump_state==='fault')p={st:'crit',label:'Fault',val:''};else if(has('pump-noflow')||has('flow-pumpoff'))p={st:'warn',label:'Check flow',val:''};
+  R.pump=p;
+  R.flowSensor=r.sensor_status.flow==='valid'?{st:'ok',label:fv(r.flow_lpm,2)+' L/min',val:fv(r.flow_lpm,2)+' L/min'}:{st:'warn',label:'Unavailable',val:''};
+  const tdsOk=r.sensor_status.tds==='valid',tOk=r.sensor_status.temperature==='valid';
+  R.cell={st:tdsOk&&tOk&&!has('tds-high')&&!has('temp-range')?'ok':'warn',label:(r.tds_ppm!=null?r.tds_ppm+' ppm':'TDS —')+' · '+(r.temperature_c!=null?fv(r.temperature_c)+' °C':'T —'),val:''};
+  if(stale)Object.keys(R).forEach(k=>{if(R[k].st==='ok'||R[k].st==='warn')R[k]={st:'warn',label:'Stale',val:''}});
+  return R;
+}
+const STLAB={ok:'Normal',warn:'Warning',crit:'Fault',na:'Unavailable'};
+
+/* ---------- 3D twin ---------- */
+const SC={ok:0x177A4E,warn:0xD79A1B,crit:0xB52A25,na:0x8E9DA6};
+function makeTwin(el,opts){
+  const fallback={update(){},select(){},reset(){},rotate(){return false},dispose(){},loadGLB(a,b,cb){cb(new Error('3D unavailable'))},clearModel(){},setMapping(){return{}}};
+  if(typeof THREE==='undefined'||!THREE.OrbitControls){el.insertAdjacentHTML('beforeend','<div class="nogl">The 3D libraries did not load. Component list and readings still work.</div>');return fallback}
+  let renderer;
+  try{renderer=new THREE.WebGLRenderer({antialias:true,alpha:true})}catch(e){el.insertAdjacentHTML('beforeend','<div class="nogl">3D view is unavailable in this browser. Component list and readings still work.</div>');return fallback}
+  const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+  el.appendChild(renderer.domElement);
+  const tagsEl=document.createElement('div');tagsEl.className='tags';el.appendChild(tagsEl);
+  const scene=new THREE.Scene();
+  const camera=new THREE.PerspectiveCamera(30,1,.1,200);
+  const controls=new THREE.OrbitControls(camera,renderer.domElement);
+  controls.enableDamping=true;controls.dampingFactor=.08;controls.maxPolarAngle=Math.PI*.47;controls.minDistance=6;controls.maxDistance=60;
+  const target=new THREE.Vector3(0,.5,.2);controls.target.copy(target);
+  scene.add(new THREE.HemisphereLight(0xffffff,0xb9c6cd,.95));
+  const dl=new THREE.DirectionalLight(0xffffff,.8);dl.position.set(6,12,8);scene.add(dl);
+
+  const ph=new THREE.Group();scene.add(ph);
+  const plate=new THREE.Mesh(new THREE.BoxGeometry(18,.1,9),new THREE.MeshStandardMaterial({color:0xF9FBFB,roughness:.9}));plate.position.y=-.05;scene.add(plate);
+  const gp=[];for(let x=-9;x<=9;x++)gp.push(x,.006,-4.5,x,.006,4.5);for(let z=-4;z<=4;z++)gp.push(-9,.006,z,9,.006,z);
+  const gg=new THREE.BufferGeometry();gg.setAttribute('position',new THREE.Float32BufferAttribute(gp,3));
+  scene.add(new THREE.LineSegments(gg,new THREE.LineBasicMaterial({color:0xD3DCE1})));
+  const pe=new THREE.LineSegments(new THREE.EdgesGeometry(plate.geometry),new THREE.LineBasicMaterial({color:0xB5C1C8}));pe.position.y=-.05;scene.add(pe);
+
+  const PY=.62,nodes={},bodies=[],tagEls={};
+  const baseMat=()=>new THREE.MeshStandardMaterial({color:0xF1F5F6,roughness:.65,metalness:.02});
+  COMP.forEach(c=>{
+    let geo,h;
+    if(c.kind==='tank'){h=2;geo=new THREE.BoxGeometry(1.7,h,1.7)}
+    else if(c.kind==='pump'){h=1.2;geo=new THREE.CylinderGeometry(.65,.65,h,36)}
+    else if(c.kind==='filter'){h=2.3;geo=new THREE.CylinderGeometry(.5,.5,h,36)}
+    else if(c.kind==='flow'){h=.8;geo=new THREE.BoxGeometry(.9,h,.7)}
+    else if(c.kind==='cell'){h=1.1;geo=new THREE.BoxGeometry(1.5,h,1.1)}
+    else{h=1;geo=new THREE.CylinderGeometry(.4,.4,h,28)}
+    const m=new THREE.Mesh(geo,baseMat());m.position.set(c.x,h/2,c.z);m.userData.id=c.id;
+    const ed=new THREE.LineSegments(new THREE.EdgesGeometry(geo,20),new THREE.LineBasicMaterial({color:0x0F2230}));m.add(ed);
+    ph.add(m);bodies.push(m);
+    const lamp=new THREE.Mesh(new THREE.SphereGeometry(.14,16,12),new THREE.MeshBasicMaterial({color:SC.na,transparent:true,opacity:.7}));
+    const lampY=h+(c.kind==='cell'?.8:.3);lamp.position.set(c.x,lampY,c.z);ph.add(lamp);
+    nodes[c.id]={mesh:m,edge:ed,lamp:lamp,top:lampY};
+    const t=document.createElement('div');t.className='tag';tagsEl.appendChild(t);tagEls[c.id]=t;
+  });
+  const cellN=nodes.cell,cc=COMPBYID.cell;
+  [[-.4,0x0F2230],[0,0x0F2230]].forEach(p=>{const pr=new THREE.Mesh(new THREE.CylinderGeometry(.06,.06,.55,12),new THREE.MeshStandardMaterial({color:p[1]}));pr.position.set(cc.x+p[0],1.1+.27,cc.z);ph.add(pr)});
+  const ghost=new THREE.Mesh(new THREE.CylinderGeometry(.06,.06,.55,12),new THREE.MeshBasicMaterial({color:0x6F808B,wireframe:true}));ghost.position.set(cc.x+.4,1.1+.27,cc.z);ph.add(ghost);
+
+  // water path (schematic route only)
+  const pts=[];
+  COMP.forEach((c,i)=>{
+    if(i===0)pts.push([c.x,PY,c.z]);else pts.push([c.x-c.hw,PY,c.z]);
+    if(i<COMP.length-1){const n=COMP[i+1];pts.push([c.x+c.hw,PY,c.z]);const xm=(c.x+c.hw+n.x-n.hw)/2;pts.push([xm,PY,c.z]);pts.push([xm,PY,n.z])}
+    else pts.push([c.x,PY,c.z]);
+  });
+  const path=new THREE.CurvePath();
+  for(let i=0;i<pts.length-1;i++){const a=new THREE.Vector3(...pts[i]),b=new THREE.Vector3(...pts[i+1]);if(a.distanceTo(b)>1e-4)path.add(new THREE.LineCurve3(a,b))}
+  const pipeMat=new THREE.MeshStandardMaterial({color:0x7F92EE,roughness:.35});
+  const pipe=new THREE.Mesh(new THREE.TubeGeometry(path,200,.085,10,false),pipeMat);ph.add(pipe);
+  pts.forEach((p,i)=>{if(i>0&&i<pts.length-1){const s=new THREE.Mesh(new THREE.SphereGeometry(.085,10,8),pipeMat);s.position.set(...p);ph.add(s)}});
+  const NP=80,pa=new Float32Array(NP*3),pg=new THREE.BufferGeometry();pg.setAttribute('position',new THREE.BufferAttribute(pa,3));
+  const particles=new THREE.Points(pg,new THREE.PointsMaterial({color:0x1C2FB8,size:.2,sizeAttenuation:true}));ph.add(particles);
+
+  let model=null,flow=null,sel=opts.selected||null,mapping={},mapped={},names=[],phase=0,raf=0,lastT=performance.now(),lastStates=null;
+  const AXIS=new THREE.Vector3(.55,.5,.67).normalize();
+  function size(){const w=el.clientWidth||600,h=el.clientHeight||400;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();return w/h}
+  function reset(){const asp=size();const d=22/Math.min(1,asp/1.55);camera.position.copy(target).addScaledVector(AXIS,d);controls.target.copy(target);controls.update()}
+  reset();
+  const ro=new ResizeObserver(()=>{size()});ro.observe(el);
+  function highlight(){COMP.forEach(c=>{const n=nodes[c.id],on=c.id===sel;n.mesh.material.color.setHex(on?0xDCE1FA:0xF1F5F6);n.edge.material.color.setHex(on?0x2A3FD8:0x0F2230);tagEls[c.id].classList.toggle('sel',on)})}
+  highlight();
+  // select by click (not drag)
+  const ray=new THREE.Raycaster(),mv=new THREE.Vector2();let down=null;
+  renderer.domElement.addEventListener('pointerdown',e=>{down=[e.clientX,e.clientY]});
+  renderer.domElement.addEventListener('pointerup',e=>{
+    if(!down||Math.hypot(e.clientX-down[0],e.clientY-down[1])>4||model)return;
+    const r=renderer.domElement.getBoundingClientRect();mv.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);
+    ray.setFromCamera(mv,camera);const hit=ray.intersectObjects(bodies,false)[0];
+    if(hit&&opts.onSelect)opts.onSelect(hit.object.userData.id);
+  });
+  const tmp=new THREE.Vector3();
+  function loop(now){
+    raf=requestAnimationFrame(loop);
+    const dt=Math.min(.1,(now-lastT)/1000);lastT=now;
+    controls.update();
+    const run=flow!=null&&flow>.05&&!model;
+    particles.visible=!model;
+    if(!model){
+      if(run&&!reduce)phase=(phase+dt*(flow/1.6)*.07)%1;
+      const L=path.getLength?1:1;
+      for(let i=0;i<NP;i++){const u=run?((i/NP)+phase)%1:(i/NP);const p=path.getPointAt(Math.min(.9999,u));pa[i*3]=p.x;pa[i*3+1]=p.y;pa[i*3+2]=p.z}
+      pg.attributes.position.needsUpdate=true;particles.material.opacity=1;particles.material.transparent=true;particles.material.opacity=run?1:.18;
+    }
+    renderer.render(scene,camera);
+    if(!model&&opts.labels!==false){
+      const w=el.clientWidth,h=el.clientHeight;
+      COMP.forEach(c=>{tmp.set(c.x,nodes[c.id].top+.35,c.z).project(camera);const t=tagEls[c.id];
+        t.style.left=((tmp.x*.5+.5)*w)+'px';t.style.top=((-tmp.y*.5+.5)*h)+'px';t.style.display=tmp.z<1?'':'none'});
+    }
+  }
+  raf=requestAnimationFrame(loop);
+  function setTint(id,st){(mapped[id]||[]).forEach(m=>{if(m.material&&m.material.emissive){m.material.emissive.setHex(SC[st]);m.material.emissiveIntensity=st==='na'?.0:.45}})}
+  return {
+    update(info){
+      lastStates=info.st;flow=info.flow;
+      COMP.forEach(c=>{const s=info.st[c.id]||{st:'na',label:''};const n=nodes[c.id];
+        n.lamp.material.color.setHex(SC[s.st]);n.lamp.material.opacity=s.st==='na'?.55:1;
+        const html='<b>'+esc(c.short)+'</b><span>'+esc(s.label||'')+'</span>';if(tagEls[c.id]._h!==html){tagEls[c.id].innerHTML=html;tagEls[c.id]._h=html}
+        setTint(c.id,s.st)});
+    },
+    select(id){sel=id;highlight()},
+    reset:reset,
+    rotate(){controls.autoRotate=!controls.autoRotate&&!reduce;controls.autoRotateSpeed=1.2;return controls.autoRotate},
+    dispose(){cancelAnimationFrame(raf);ro.disconnect();controls.dispose();renderer.dispose();el.innerHTML=''},
+    loadGLB(buf,name,cb){
+      if(!THREE.GLTFLoader){cb(new Error('GLTFLoader did not load'));return}
+      try{new THREE.GLTFLoader().parse(buf,'',g=>{
+        if(model)scene.remove(model);
+        model=g.scene;const box=new THREE.Box3().setFromObject(model),sz=box.getSize(new THREE.Vector3()),ct=box.getCenter(new THREE.Vector3());
+        const sc=8/(Math.max(sz.x,sz.y,sz.z)||1);model.scale.setScalar(sc);model.position.copy(ct).multiplyScalar(-sc);model.position.y+=sz.y*sc/2;
+        scene.add(model);ph.visible=false;tagsEl.style.display='none';
+        const set=new Set();model.traverse(o=>{if(o.isMesh){o.material=o.material.clone();if(o.name)set.add(o.name)}});names=[...set];
+        target.set(0,2,0);reset();cb(null,names);
+      },err=>cb(err||new Error('Could not parse model')))}catch(e){cb(e)}
+    },
+    clearModel(){if(model)scene.remove(model);model=null;mapped={};ph.visible=true;tagsEl.style.display='';target.set(0,.5,.2);reset()},
+    setMapping(m){
+      mapping=m;mapped={};const res={};
+      Object.keys(m).forEach(id=>{const list=m[id]||[];mapped[id]=[];model&&model.traverse(o=>{if(o.isMesh&&list.indexOf(o.name)>=0)mapped[id].push(o)});res[id]=mapped[id].length});
+      if(lastStates)Object.keys(lastStates).forEach(id=>setTint(id,lastStates[id].st));
+      return res;
+    }
+  };
+}
+function twinInfo(){const r=S.last;return{st:compState(),flow:S.mode==='sim'||S.mode==='simulation'?(r&&r.sensor_status.flow==='valid'&&Date.now()-r.t<CFG.staleTimeoutS*1000?r.flow_lpm:null):null}}
+function mountTwin(id,opts){
+  if(TWIN){TWIN.dispose();TWIN=null}
+  const el=document.getElementById(id);if(!el)return;
+  TWIN=makeTwin(el,Object.assign({selected:S.selected,onSelect:selectComp},opts||{}));
+  TWIN.update(twinInfo());
+}
+function selectComp(id){S.selected=id;if(TWIN)TWIN.select(id);$$('.chip[data-comp]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.comp===id));const i=$('#info');if(i)i.innerHTML=infoHTML(id)}
+function infoHTML(id){
+  const c=COMPBYID[id],s=compState()[id]||{st:'na',label:''};
+  return '<h3>'+esc(c.name)+' <span class="pill '+s.st+'">'+STLAB[s.st]+(s.label&&s.st!=='na'?' · '+esc(s.label):'')+'</span></h3><ul>'+c.facts.map(f=>'<li>'+esc(f)+'</li>').join('')+'</ul>';
+}
+function chipsHTML(){
+  const st=compState();
+  return '<div class="chips" role="group" aria-label="Components">'+COMP.map(c=>'<button class="chip" data-comp="'+c.id+'" aria-pressed="'+(S.selected===c.id)+'"><span class="dot '+st[c.id].st+'"></span>'+esc(c.short)+'</button>').join('')+'</div>';
+}
+const LEGEND='<div class="legend"><span><i style="background:var(--ok)"></i>Normal or active</span><span><i style="background:#D79A1B"></i>Warning</span><span><i style="background:var(--crit)"></i>Fault</span><span><i style="background:transparent;border:2px solid var(--na)"></i>Unavailable</span><span><i class="ring"></i>Selected</span></div>';
+
+/* ---------- pages ---------- */
+function prov(){return S.mode==='live'?'Measured':'Simulated'}
+function sensorPill(k,r){
+  if(!r)return['na','No data'];
+  const st=r.sensor_status[k];
+  if(st==='not_installed')return['na','Awaiting sensor'];
+  if(st==='disconnected')return['warn','Disconnected'];
+  if(st==='out_of_range')return['warn','Invalid reading'];
+  if(k==='tds'&&r.tds_ppm>CFG.tdsWarnHigh)return['warn','Above threshold'];
+  if(k==='temperature'&&(r.temperature_c>CFG.tempMax||r.temperature_c<CFG.tempMin))return['warn','Out of range'];
+  return['ok','Valid'];
+}
+function rdCard(id,label,extra){return '<div class="rd '+(extra||'')+'"><div class="lb">'+label+'</div><div class="v" id="'+id+'-v">—</div><div class="row"><span class="pill na" id="'+id+'-s">No data</span><span class="tagline" id="'+id+'-p"></span></div></div>'}
+
+function pageOverview(){
+  return '<div class="pagehead"><div><h1>Overview</h1><p class="muted">Water path, live readings and active alerts for <span class="num">'+CFG.deviceId+'</span>.</p></div></div>'+
+  '<div class="ov"><div class="panel"><div class="ph"><h2>Water path</h2><span class="tagline">Drag to orbit, scroll to zoom, click a component</span></div>'+
+    '<div class="stage" id="stage"><div class="stage-note" id="stagenote">Placeholder schematic. Awaiting SolidWorks design.</div>'+
+    '<div class="stage-tools"><button class="btn ghost" data-act="reset">Reset view</button></div>'+LEGEND+'</div>'+
+    '<div id="chips">'+chipsHTML()+'</div><div class="info" id="info">'+infoHTML(S.selected)+'</div></div>'+
+  '<div class="col"><div class="cards">'+
+    rdCard('o-tds','TDS')+rdCard('o-temp','Water temperature')+rdCard('o-flow','Flow rate')+rdCard('o-turb','Turbidity')+rdCard('o-pump','Pump')+rdCard('o-vol','Total volume')+
+    '</div><p class="tagline">TDS and temperature alone cannot show that water is safe to drink. Flow and volume use a placeholder calibration.</p></div></div>'+
+  '<div class="two"><div class="panel"><div class="ph"><h2>Active alerts</h2><a href="#alerts" class="small">Open diagnostics</a></div><div class="list" id="o-alerts"></div></div>'+
+  '<div class="panel"><div class="ph"><h2>Recent events</h2><span class="tagline">Times in '+esc(TZ)+'</span></div><div class="list" id="o-events"></div></div></div>'+
+  '<div class="panel"><div class="ph"><h2>Scenario bench</h2><span class="tagline">Simulator controls. They change generated data only.</span></div>'+benchHTML()+'</div>';
+}
+function benchHTML(){
+  const s=S.sim,d=S.mode!=='simulation'?' disabled':'';
+  const sel=(id,k)=>'<select id="'+id+'"'+d+'><option value="ok"'+(s.dis[k]==='ok'?' selected':'')+'>Normal</option><option value="off"'+(s.dis[k]==='off'?' selected':'')+'>Disconnected</option><option value="bad"'+(s.dis[k]==='bad'?' selected':'')+'>Invalid reading</option></select>';
+  return (S.mode!=='simulation'?'<div class="empty">Scenario controls are available in Simulation Mode only.</div>':'')+
+  '<div class="bench">'+
+  '<div class="fld">Pump (simulator)<button class="btn ghost" id="b-pump" data-act="b-pump"'+d+'>Pump commanded '+(s.pump?'on. Turn off':'off. Turn on')+'</button></div>'+
+  '<label class="fld" for="b-flow">Flow setpoint: <span class="num" id="b-flow-v">'+s.flow.toFixed(1)+'</span> L/min<input type="range" id="b-flow" min="0.2" max="1.6" step="0.1" value="'+s.flow+'"'+d+'></label>'+
+  '<label class="fld" for="b-tds">Raise TDS by <span class="num" id="b-tds-v">'+s.tdsOffset+'</span> ppm<input type="range" id="b-tds" min="0" max="400" step="10" value="'+s.tdsOffset+'"'+d+'></label>'+
+  '<label class="fld" for="b-temp">Raise temperature by <span class="num" id="b-temp-v">'+s.tempOffset+'</span> °C<input type="range" id="b-temp" min="0" max="15" step="1" value="'+s.tempOffset+'"'+d+'></label>'+
+  '<label class="fld" for="b-dtds">TDS sensor'+sel('b-dtds','tds')+'</label>'+
+  '<label class="fld" for="b-dtemp">Temperature sensor'+sel('b-dtemp','temperature')+'</label>'+
+  '<label class="fld" for="b-dflow">Flow sensor'+sel('b-dflow','flow')+'</label>'+
+  '<div class="fld"><label class="chk"><input type="checkbox" id="b-block"'+(s.blocked?' checked':'')+d+'>Pump on, no flow</label>'+
+  '<label class="chk"><input type="checkbox" id="b-ghost"'+(s.ghost?' checked':'')+d+'>Flow while pump is off</label>'+
+  '<label class="chk"><input type="checkbox" id="b-fault"'+(s.pumpFault?' checked':'')+d+'>Pump reports fault</label>'+
+  '<label class="chk"><input type="checkbox" id="b-freeze"'+(s.frozen?' checked':'')+d+'>Stop telemetry (stale)</label></div>'+
+  '<div class="fld">Reset<button class="btn ghost" data-act="b-reset"'+d+'>Restore normal scenario</button></div></div>';
+}
+function setRd(id,val,unit,pill,p){
+  const v=$('#'+id+'-v'),s=$('#'+id+'-s'),pp=$('#'+id+'-p');if(!v)return;
+  v.className='v'+(unit===null?' words':'');v.innerHTML=unit===null?esc(val):esc(val)+(unit?'<small>'+esc(unit)+'</small>':'');
+  s.className='pill '+pill[0];s.textContent=pill[1];pp.textContent=p||'';
+}
+function listAlerts(max){
+  const a=S.alerts.slice(0,max||99);
+  return a.map(x=>'<div class="li"><span class="pill '+(x.sev==='crit'?'crit':x.sev==='warn'?'warn':'info')+'">'+({crit:'Critical',warn:'Warning',info:'Info'}[x.sev])+'</span><div style="flex:1;min-width:0"><b>'+esc(x.title)+'</b><div class="small muted">'+esc(x.detected)+'</div></div></div>').join('')||'<div class="empty">No active alerts.</div>';
+}
+function listEvents(n){
+  return S.events.slice(0,n).map(e=>'<div class="li"><span class="t">'+fmtT(e.t)+'</span><span style="flex:1;min-width:0">'+esc(e.text)+'</span></div>').join('')||'<div class="empty">No events yet.</div>';
+}
+function ovUpdate(){
+  const r=S.last,live=S.mode==='live'||!r,p=prov();
+  if(live){setRd('o-tds','No live data','',['na','No data'],'');$('#o-tds-v').className='v words';
+    ['o-temp','o-flow','o-pump','o-vol'].forEach(i=>{setRd(i,'No live data',null,['na','No data'],'');});
+    setRd('o-turb','Awaiting sensor',null,['na','Not installed'],'');
+  }else{
+    const sp=(k)=>sensorPill(k,r);
+    setRd('o-tds',r.tds_ppm==null?'Unavailable':String(r.tds_ppm),r.tds_ppm==null?null:'ppm',sp('tds'),p);
+    setRd('o-temp',r.temperature_c==null?'Unavailable':fv(r.temperature_c),r.temperature_c==null?null:'°C',sp('temperature'),p);
+    setRd('o-flow',r.flow_lpm==null?'Unavailable':fv(r.flow_lpm,2),r.flow_lpm==null?null:'L/min',sp('flow'),p);
+    setRd('o-turb','Awaiting sensor',null,['na','Not installed'],'No NTU value exists');
+    const ps=r.pump_state,pp=ps==='fault'?['crit','Fault']:ps==='on'?['ok','On']:['ok','Off'];
+    setRd('o-pump',ps==='fault'?'Fault':ps==='on'?'On':'Off',null,pp,p+' · commanded '+(r.pump_commanded?'on':'off'));
+    setRd('o-vol',S.vol.toFixed(2),'L',['info','Calculated'],p+' · since page opened');
+  }
+  const a=$('#o-alerts');if(a)a.innerHTML=listAlerts(4);
+  const e=$('#o-events');if(e)e.innerHTML=listEvents(7);
+  chipsUpdate();
+}
+function chipsUpdate(){const st=compState();$$('.chip[data-comp]').forEach(b=>{const d=$('.dot',b);if(d)d.className='dot '+st[b.dataset.comp].st});const i=$('#info');if(i)i.innerHTML=infoHTML(S.selected)}
+
+function pageTwin(){
+  return '<div class="pagehead"><div><h1>Digital twin</h1><p class="muted">Component state drawn on the water path. Load your own GLB to replace the placeholder.</p></div></div>'+
+  '<div class="ov"><div class="panel"><div class="stage big" id="stage"><div class="stage-note" id="stagenote">Placeholder schematic. Awaiting SolidWorks design.</div>'+
+    '<div class="stage-tools"><button class="btn ghost" data-act="reset">Reset view</button><button class="btn ghost" data-act="rotate" id="rotbtn">Auto-rotate</button></div>'+LEGEND+'</div>'+
+    '<div id="chips">'+chipsHTML()+'</div><div class="info" id="info">'+infoHTML(S.selected)+'</div></div>'+
+  '<div class="col"><div class="panel"><div class="ph"><h2>Use your SolidWorks model</h2></div><div class="pb" style="display:grid;gap:10px">'+
+    '<p class="small muted">Browsers cannot open SolidWorks files directly. Export or convert your assembly to GLB, keeping part names, then load it here. STEP files need a separate conversion step first.</p>'+
+    '<label class="fld" for="glbfile">GLB file<input type="file" id="glbfile" accept=".glb"></label>'+
+    '<div id="glbstatus" class="small muted">No model loaded. The schematic shows only the order of the water path. Positions and shapes are not your product.</div>'+
+    '<button class="btn ghost" data-act="clearglb">Back to placeholder</button></div></div>'+
+  '<div class="panel"><div class="ph"><h2>Part mapping</h2></div><div class="pb" style="display:grid;gap:10px">'+
+    '<p class="small muted">Map mesh names from your model to component ids. Nothing is guessed. Unmapped parts keep their own colours, and flow animation stays off until a pipe route is mapped.</p>'+
+    '<div id="meshnames" class="small muted">Mesh names appear after a model loads.</div>'+
+    '<label class="fld" for="mapjson">Mapping (JSON)<textarea id="mapjson" rows="8" spellcheck="false" style="font-family:var(--f-num);font-size:12px">{\n  "tank": [],\n  "pump": [],\n  "filter": [],\n  "flowSensor": [],\n  "cell": [],\n  "outlet": []\n}</textarea></label>'+
+    '<button class="btn" data-act="applymap">Apply mapping</button><div id="mapres" class="small muted"></div></div></div></div></div>';
+}
+function twUpdate(){chipsUpdate()}
+
+/* ----- analytics ----- */
+const RANGES={'1h':[3600e3,60e3],'24h':[86400e3,600e3],'7d':[7*86400e3,3600e3],'30d':[30*86400e3,4*3600e3]};
+function getRows(rk){
+  if(S.mode==='live')return[];
+  const w=RANGES[rk][0],step=RANGES[rk][1],now=Date.now(),start=now-w,rows=[];
+  for(let t=Math.ceil(start/step)*step;t<T0;t+=step)rows.push(histRow(t));
+  let lt=-1;S.buf.forEach(r=>{if(r.t<start)return;if(lt<0||r.t-lt>=step){rows.push(r);lt=r.t}});
+  return rows;
+}
+function niceStep(x){const p=Math.pow(10,Math.floor(Math.log10(x))),f=x/p;return(f<1.5?1:f<3?2:f<7?5:10)*p}
+function chart(rows,key,o){
+  const W=640,H=200,L=46,R=14,T=12,B=26;
+  const v=rows.map(r=>r[key]).filter(x=>x!=null);
+  if(!v.length)return'<div class="empty">No valid readings in this range.</div>';
+  let lo=Math.min.apply(null,v),hi=Math.max.apply(null,v);
+  if(hi-lo<o.span){const m=(hi+lo)/2;lo=m-o.span/2;hi=m+o.span/2}
+  const pd=(hi-lo)*.1;lo=Math.max(o.floor,lo-pd);hi=hi+pd;
+  const st=niceStep((hi-lo)/4),t0=rows[0].t,t1=rows[rows.length-1].t||t0+1,tv=Math.max(1,t1-t0);
+  const X=t=>L+(t-t0)/tv*(W-L-R),Y=x=>T+(1-(x-lo)/(hi-lo))*(H-T-B);
+  let g='',ticks=[];for(let y=Math.ceil(lo/st)*st;y<=hi+1e-9;y+=st)ticks.push(y);
+  ticks.forEach(y=>{g+='<line class="gl" x1="'+L+'" x2="'+(W-R)+'" y1="'+Y(y).toFixed(1)+'" y2="'+Y(y).toFixed(1)+'"/><text class="axt" x="'+(L-6)+'" y="'+(Y(y)+4).toFixed(1)+'" text-anchor="end">'+(st<1?y.toFixed(1):Math.round(y))+'</text>'});
+  const long=(t1-t0)>90000e3;
+  for(let i=0;i<5;i++){const t=t0+tv*i/4,d=new Date(t);const lab=long?pad(d.getMonth()+1)+'-'+pad(d.getDate()):pad(d.getHours())+':'+pad(d.getMinutes());
+    g+='<text class="axt" x="'+X(t).toFixed(1)+'" y="'+(H-8)+'" text-anchor="'+(i===0?'start':i===4?'end':'middle')+'">'+lab+'</text>'}
+  let segs=[],cur=[];rows.forEach(r=>{if(r[key]==null){if(cur.length)segs.push(cur);cur=[]}else cur.push([X(r.t),Y(r[key])])});if(cur.length)segs.push(cur);
+  let area='',line='',last=null;
+  segs.forEach(s=>{if(!s.length)return;const d=s.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join('');line+='<path d="'+d+'" fill="none" stroke="'+o.color+'" stroke-width="1.8" stroke-linejoin="round"/>';
+    if(s.length>1)area+='<path d="'+d+'L'+s[s.length-1][0].toFixed(1)+' '+(H-B)+'L'+s[0][0].toFixed(1)+' '+(H-B)+'Z" fill="'+o.color+'" fill-opacity=".09" stroke="none"/>';last=s[s.length-1][s.length?0:0]&&s[s.length-1]});
+  const dot=last?'<circle cx="'+last[0].toFixed(1)+'" cy="'+last[1].toFixed(1)+'" r="4" fill="'+o.color+'" stroke="#fff" stroke-width="2"/>':'';
+  return'<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="'+esc(o.label)+' history"><text class="axt" x="'+L+'" y="9">'+esc(o.unit)+'</text>'+g+area+line+dot+'</svg>';
+}
+function stats(rows,key,d){const v=rows.map(r=>r[key]).filter(x=>x!=null);if(!v.length)return{n:0};return{n:v.length,min:Math.min.apply(null,v),max:Math.max.apply(null,v),avg:v.reduce((a,b)=>a+b,0)/v.length,d:d}}
+function sensorCard(key,label,unit,color,o,d){
+  const rows=getRows(S.range),s=stats(rows,key,d),r=S.last;
+  const live=S.mode==='live'||!r;
+  const sk={tds_ppm:'tds',temperature_c:'temperature',flow_lpm:'flow'}[key];
+  const pl=sensorPill(sk,r);
+  const lastValid=[...rows].reverse().find(x=>x[key]!=null);
+  return'<div class="panel sc"><div class="head"><div><h2>'+label+'</h2><div class="tagline">'+prov()+' · '+(live?'no data':'latest '+fmtT(r.t)+' '+esc(TZ))+'</div></div><span class="pill '+pl[0]+'">'+pl[1]+'</span></div>'+
+   '<div class="head" style="padding-top:2px"><div class="big">'+(live||r[key]==null?'—':fv(r[key],d))+'<small>'+(r&&r[key]!=null?unit:'')+'</small></div></div>'+
+   '<div class="stats">'+(s.n?'<span>Min <b>'+s.min.toFixed(d)+'</b></span><span>Max <b>'+s.max.toFixed(d)+'</b></span><span>Avg <b>'+s.avg.toFixed(d)+'</b></span><span><b>'+s.n+'</b> valid records</span>':'<span>No valid records in range</span>')+'</div>'+
+   '<div class="chart">'+chart(rows,key,Object.assign({unit:unit,color:color,label:label},o))+'</div></div>';
+}
+function csvText(rows){
+  const h='device_id,timestamp,mode,tds_ppm,temperature_c,flow_lpm,turbidity_ntu,pump_commanded,pump_state,tds_status,temperature_status,flow_status,turbidity_status';
+  const c=v=>v==null?'':v;
+  return h+'\n'+rows.map(r=>[r.device_id,r.timestamp,r.mode,c(r.tds_ppm),c(r.temperature_c),c(r.flow_lpm),c(r.turbidity_ntu),r.pump_commanded,r.pump_state,r.sensor_status.tds,r.sensor_status.temperature,r.sensor_status.flow,r.sensor_status.turbidity].join(',')).join('\n');
+}
+function pageAnalytics(){
+  return'<div class="pagehead"><div><h1>Sensor analytics</h1><p class="muted">History, ranges and exportable records. Unavailable readings are blank, never zero.</p></div>'+
+   '<div class="rangebar"><span class="small muted">Range</span><div class="seg" role="group" aria-label="Time range">'+Object.keys(RANGES).map(k=>'<button data-range="'+k+'" aria-pressed="'+(S.range===k)+'">'+k+'</button>').join('')+'</div></div></div>'+
+   '<div id="an-body">'+analyticsBody()+'</div>';
+}
+function analyticsBody(){
+  const rows=getRows(S.range),live=S.mode==='live';
+  const hist=live?'':'<div class="tagline">History before this page opened is generated sample data. Rows after that are produced by the running simulator.</div>';
+  const show=rows.slice(-40).reverse();
+  const csv=csvText(rows);
+  return hist+'<div class="sensors">'+
+   sensorCard('tds_ppm','TDS','ppm','var(--c-tds)',{span:30,floor:0},0)+
+   sensorCard('temperature_c','Water temperature','°C','var(--c-temp)',{span:3,floor:-20},1)+
+   sensorCard('flow_lpm','Flow rate','L/min','var(--c-flow)',{span:.6,floor:0},2)+
+   '<div class="panel sc"><div class="head"><div><h2>Turbidity</h2><div class="tagline">NTU</div></div><span class="pill na">Awaiting sensor</span></div><div class="empty">No turbidity sensor is installed, so no NTU data exists. A chart appears once a sensor reports valid readings.</div></div></div>'+
+   '<div class="panel"><div class="ph"><h2>Readings table</h2><span class="tagline">Latest 40 of <span class="num">'+rows.length+'</span> records · times in '+esc(TZ)+'</span></div>'+
+   (rows.length?'<div class="tbl" style="max-height:340px;overflow:auto"><table><thead><tr><th>Time</th><th>Source</th><th>TDS (ppm)</th><th>Temp (°C)</th><th>Flow (L/min)</th><th>Turbidity (NTU)</th><th>Pump</th></tr></thead><tbody>'+
+    show.map(r=>'<tr><td class="n">'+fmtD(r.t)+'</td><td>'+(r.mode==='simulation'?'Simulated':'Measured')+'</td><td class="n">'+(r.tds_ppm==null?'—':r.tds_ppm)+'</td><td class="n">'+fv(r.temperature_c)+'</td><td class="n">'+fv(r.flow_lpm,2)+'</td><td class="n">—</td><td>'+r.pump_state+'</td></tr>').join('')+'</tbody></table></div>':'<div class="empty">No records. Live Device Mode has not received any telemetry.</div>')+'</div>'+
+   '<div class="panel"><div class="ph"><h2>CSV export</h2><button class="btn" data-act="copycsv"'+(rows.length?'':' disabled')+'>Copy CSV</button></div><div class="pb" style="display:grid;gap:8px"><p class="small muted">Timestamps are UTC ISO 8601. Blank cells mean unavailable. Downloads are blocked inside this viewer, so copy the text into a .csv file.</p><textarea class="csv" id="csvbox" readonly aria-label="CSV text">'+esc(csv)+'</textarea><div id="csvmsg" class="small muted"></div></div></div>';
+}
+function anUpdate(){const b=$('#an-body');if(!b)return;const sc=b.scrollTop;const tb=$('#csvbox');const keep=tb&&document.activeElement===tb;if(keep)return;b.innerHTML=analyticsBody()}
+
+/* ----- alerts ----- */
+function alertCard(a){
+  const sv={crit:['crit','Critical'],warn:['warn','Warning'],info:['info','Info']}[a.sev];
+  return'<div class="alert"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span class="pill '+sv[0]+'">'+sv[1]+'</span><h3>'+esc(a.title)+'</h3></div>'+
+   '<dl><dt>Detected</dt><dd>'+esc(a.detected)+'</dd><dt>Triggered by</dt><dd class="num" style="font-size:13px">'+esc(a.trigger)+'</dd><dt>Since</dt><dd class="num" style="font-size:13px">'+fmtD(a.t)+' '+esc(TZ)+'</dd>'+
+   '<dt>Basis</dt><dd>'+(a.basis==='confirmed'?'Confirmed from reported data':'Possible cause only. Not confirmed')+'</dd><dt>Checks</dt><dd><ul>'+a.checks.map(c=>'<li>'+esc(c)+'</li>').join('')+'</ul></dd></dl></div>';
+}
+function pageAlerts(){
+  const f=(id,l,v,st)=>'<label class="fld" for="'+id+'">'+l+'<input type="number" id="'+id+'" value="'+v+'" step="'+(st||1)+'"></label>';
+  return'<div class="pagehead"><div><h1>Alerts and diagnostics</h1><p class="muted">Rule-based checks with their evidence. No AI model is making these decisions.</p></div></div>'+
+   '<div class="ov"><div class="panel"><div class="ph"><h2>Active alerts</h2></div><div id="al-list">'+S.alerts.map(alertCard).join('')+'</div></div>'+
+   '<div class="col"><div class="panel"><div class="ph"><h2>Thresholds</h2></div><div class="bench" style="grid-template-columns:1fr 1fr">'+
+    f('c-stale','Stale after (s)',CFG.staleTimeoutS)+f('c-delay','Pump startup delay (s)',CFG.startupDelayS)+f('c-flowmin','Minimum flow (L/min)',CFG.flowMinLpm,.05)+f('c-tds','TDS review above (ppm)',CFG.tdsWarnHigh,10)+f('c-tmin','Temperature low (°C)',CFG.tempMin)+f('c-tmax','Temperature high (°C)',CFG.tempMax)+
+    '</div><p class="small muted" style="padding:0 14px 14px">All values are placeholders until calibrated. They are prompts for review and not safety limits.</p></div>'+
+   '<div class="panel"><div class="ph"><h2>Event log</h2><span class="tagline">'+esc(TZ)+'</span></div><div class="list" id="al-events" style="max-height:340px;overflow:auto">'+listEvents(30)+'</div></div></div></div>';
+}
+function alUpdate(){const l=$('#al-list');if(l)l.innerHTML=S.alerts.map(alertCard).join('');const e=$('#al-events');if(e)e.innerHTML=listEvents(30)}
+
+/* ----- support ----- */
+const FAQ=[
+ ['Why does turbidity say "Awaiting sensor"?','No turbidity sensor is installed yet. The console shows availability, not a made-up NTU value. Readings will appear once a sensor is fitted and reporting valid data.'],
+ ['Does a low TDS mean the water is safe to drink?','No. TDS measures dissolved ions only. It says nothing about bacteria, many chemicals or particles. This console never gives a drinking-water verdict from TDS.'],
+ ['How often should I change the cartridge?','No interval is set here and filter life is not estimated. Follow the cartridge maker\'s guidance and watch for a sustained drop in flow compared with your baseline.'],
+ ['The pump is on but flow is zero. What should I check?','Open the "Pump on, no flow" guide in Troubleshooting. Start with tank level and prime, then tubing and cartridge, then the flow sensor direction and cable.'],
+ ['Why is the data marked stale?','No message arrived within the timeout set on the Alerts page. The cause is not known from the page. Check ESP32 power, Wi-Fi and the broker.'],
+ ['Can I switch the pump from this page?','Not yet. In Simulation Mode the Scenario bench changes generated data only. A real command needs a backend path that the device acknowledges, and this page will never show a change before that.'],
+ ['What is Simulation Mode?','Every value is generated in your browser so the interface can be demonstrated without hardware. It is labelled on every page and never mixed with live data.'],
+ ['How do I get my SolidWorks model into the twin?','Export or convert the assembly to GLB with part names kept, load it on the Digital twin page, then map mesh names to components. Check which export formats your SolidWorks version offers. STEP files need a converter first.']
+];
+const TREES={
+ noflow:{title:'Pump on, no flow',start:'a',n:{
+  a:{q:'Is the tank water level above the pump inlet?',o:[['No','r1'],['Yes','b']]},
+  b:{q:'With the pump off and 24 V isolated, are the tubes kinked or is the cartridge visibly clogged?',o:[['Yes','r2'],['No','c']]},
+  c:{q:'Does the flow sensor arrow point with the water, and is its three-wire cable seated?',o:[['No','r3'],['Yes','r4']]},
+  r1:{r:'Refill the tank and let the pump prime. A diaphragm pump can lose prime if the inlet runs dry.'},
+  r2:{r:'Straighten the tubing or replace the cartridge, then compare flow with your earlier baseline.'},
+  r3:{r:'Reseat the cable and refit the sensor with the arrow along the flow direction.'},
+  r4:{r:'Possible causes remain: air lock, pump fault or flow sensor fault. Check the relay output and pump supply, ideally with someone qualified for 24 V work.'}}},
+ stale:{title:'Telemetry is stale',start:'a',n:{
+  a:{q:'Is the ESP32-S3 powered (LED on, USB or supply connected)?',o:[['No','r1'],['Yes','b']]},
+  b:{q:'Is the Wi-Fi network up and in range of the board?',o:[['No','r2'],['Yes','c']]},
+  c:{q:'Is the backend or MQTT bridge running?',o:[['No','r3'],['Yes','r4']]},
+  r1:{r:'Restore power and wait for the next message.'},r2:{r:'Restore Wi-Fi or move the board or access point closer.'},r3:{r:'Start the backend or bridge. This page has none attached right now.'},
+  r4:{r:'Check the device firmware log and the topic or endpoint it publishes to. Cause not determined.'}}},
+ tds:{title:'TDS reading looks wrong',start:'a',n:{
+  a:{q:'Is the TDS probe fully in water and free of air bubbles?',o:[['No','r1'],['Yes','b']]},
+  b:{q:'Do the probe electrodes look dirty or scaled?',o:[['Yes','r2'],['No','c']]},
+  c:{q:'Does a handheld meter disagree with the console by a large margin?',o:[['Yes','r3'],['No','r4']]},
+  r1:{r:'Reseat the probe so the electrodes are submerged and tap out bubbles.'},r2:{r:'Rinse with clean water. Do not scrub the electrodes with abrasives. Keep the circuit board dry.'},
+  r3:{r:'Recalibrate or compare against a reference solution. The conversion constant here is a placeholder.'},r4:{r:'The reading is consistent with the reference. Note that TDS alone does not show the water is safe.'}}}
+};
+const CHAT=[
+ [/status|now|current|reading/,()=>{const r=S.last;return S.mode==='live'||!r?'There is no live data right now.':'Simulated values right now: TDS '+(r.tds_ppm==null?'unavailable':r.tds_ppm+' ppm')+', temperature '+(r.temperature_c==null?'unavailable':fv(r.temperature_c)+' °C')+', flow '+(r.flow_lpm==null?'unavailable':fv(r.flow_lpm,2)+' L/min')+', pump '+r.pump_state+'.'}],
+ [/filter|cartridge|replace/,()=>'Open the Filter change tab for the steps. Remaining filter life is not estimated here, so compare flow with your baseline.'],
+ [/pump|no flow|flow/,()=>'Try the "Pump on, no flow" guide in Troubleshooting. Start with tank level and prime, then tubing and cartridge, then flow sensor direction.'],
+ [/tds|safe|drink/,()=>'TDS measures dissolved ions only. It cannot show that water is safe to drink.'],
+ [/turb/,()=>'No turbidity sensor is installed, so there is no NTU value to show.'],
+ [/stale|offline|connect/,()=>'Stale data means no message arrived within the timeout. Check ESP32 power, Wi-Fi and the broker.'],
+ [/model|solidworks|glb|3d|cad/,()=>'Convert your assembly to GLB with part names kept, load it on the Digital twin page, then map mesh names to components.']
+];
+let chatLog=[{a:1,t:'This is a demo with scripted answers. No AI service is connected. Ask about the filter, pump, flow, TDS, turbidity, stale data or the 3D model.'}];
+function chatHTML(){
+  return'<div class="chatlog" id="chatlog" aria-live="polite">'+chatLog.map(m=>'<div class="msg '+(m.a?'a':'u')+'">'+esc(m.t)+'</div>').join('')+'</div>'+
+   '<div class="sug">'+['Current readings','Replace filter','No flow','Is TDS enough?'].map(s=>'<button data-sug="'+s+'">'+s+'</button>').join('')+'</div>'+
+   '<form class="chatin" id="chatform"><input type="text" id="chatq" placeholder="Ask a question" autocomplete="off" aria-label="Question"><button class="btn" type="submit">Send</button></form>';
+}
+function ask(q){
+  chatLog.push({a:0,t:q});const lq=q.toLowerCase();let ans=null;
+  for(const c of CHAT){if(c[0].test(lq)){ans=c[1]();break}}
+  chatLog.push({a:1,t:ans||'I only have scripted help in this demo. Try: filter, pump, flow, TDS, turbidity, stale or model.'});
+  const l=$('#chatlog');if(l){l.innerHTML=chatLog.map(m=>'<div class="msg '+(m.a?'a':'u')+'">'+esc(m.t)+'</div>').join('');l.scrollTop=l.scrollHeight}
+}
+function supBody(){
+  const t=S.supTab;
+  if(t==='faq')return'<div>'+FAQ.map(f=>'<details class="faq"><summary>'+esc(f[0])+'</summary><p>'+esc(f[1])+'</p></details>').join('')+'</div>';
+  if(t==='trouble'){
+    if(!S.tree)return'<div class="qa"><div class="q">Pick a problem</div><div class="opts">'+Object.keys(TREES).map(k=>'<button class="btn ghost" data-tree="'+k+'">'+esc(TREES[k].title)+'</button>').join('')+'</div></div>';
+    const T=TREES[S.tree.k],n=T.n[S.tree.node];
+    return'<div class="qa"><div class="tagline">'+esc(T.title)+'</div>'+(n.q?'<div class="q">'+esc(n.q)+'</div><div class="opts">'+n.o.map(o=>'<button class="btn ghost" data-node="'+o[1]+'">'+o[0]+'</button>').join('')+'</div>':'<div class="res">'+esc(n.r)+'</div>')+'<div><button class="btn ghost" data-act="tree-reset">Start over</button></div></div>';
+  }
+  if(t==='filter'){
+    const st=['Turn the pump off and unplug the 24 V supply.','Place a tray under the filter housing and dry the area.','Note how the cartridge sits so the new one goes in the same way.','Unscrew the housing and remove the old cartridge.','Rinse the housing and check the O-ring for nicks or dirt.','Fit a new PP spun sediment cartridge and seat the O-ring.','Hand-tighten the housing. Do not use tools unless the maker says so.','Restore power, run the pump and watch every joint for leaks for a few minutes.','Compare flow with your earlier baseline and add an entry in the Service log.'];
+    return'<div class="safety"><b>Before you start.</b> Keep mains and 24 V supplies away from water. Isolate power first. Flush a new cartridge as its maker directs before drinking the output. This console cannot confirm the water is safe.</div><ol class="steps">'+st.map(s=>'<li>'+esc(s)+'</li>').join('')+'</ol>';
+  }
+  if(t==='care'){
+    const it=[['TDS probe','Rinse in clean water. Do not scrub the electrodes with abrasives. Keep the circuit board dry.'],['Temperature probe','Wipe clean and check the cable seal. Confirm whether your build uses a DS18B20 or an NTC 10 kΩ.'],['Flow sensor','Check for debris at the ports and that the arrow follows the flow. Calibrate with measured volume over time.'],['Turbidity sensor','Not installed. When fitted, clean the optical windows with a soft cloth and shield it from ambient light.'],['Pump','Listen for changes in sound. Check inlet tubing for air leaks and keep the inlet submerged.']];
+    return'<div class="list">'+it.map(i=>'<div class="li"><b style="min-width:130px">'+i[0]+'</b><span style="flex:1;min-width:200px" class="muted">'+i[1]+'</span></div>').join('')+'</div>';
+  }
+  if(t==='log'){
+    return'<form id="logform" class="bench" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))"><label class="fld" for="l-d">Date<input type="date" id="l-d"></label>'+
+     '<label class="fld" for="l-t">Type<select id="l-t"><option>Filter replaced</option><option>Sensor cleaned</option><option>Pump serviced</option><option>Other</option></select></label>'+
+     '<label class="fld" for="l-n" style="grid-column:span 2">Note<input type="text" id="l-n" placeholder="What was done"></label><div class="fld">&nbsp;<button class="btn" type="submit">Add entry</button></div></form>'+
+     '<div class="list">'+S.log.map(l=>'<div class="li"><span class="t">'+esc(l.d)+'</span><b style="min-width:120px">'+esc(l.type)+'</b><span class="muted" style="flex:1;min-width:180px">'+esc(l.note)+(l.ex?'':'')+'</span></div>').join('')+'</div>';
+  }
+  return'';
+}
+function pageSupport(){
+  return'<div class="pagehead"><div><h1>Support and DIY</h1><p class="muted">Guides for the current prototype, a service log and a scripted demo assistant.</p></div></div>'+
+   '<div class="sup"><div class="panel"><div class="ph"><h2>Assistant</h2><span class="pill info">Demo · scripted</span></div>'+chatHTML()+'</div>'+
+   '<div class="panel"><div class="tabs" role="tablist">'+[['faq','FAQ'],['trouble','Troubleshooting'],['filter','Filter change'],['care','Sensor care'],['log','Service log']].map(t=>'<button role="tab" data-tab="'+t[0]+'" aria-selected="'+(S.supTab===t[0])+'">'+t[1]+'</button>').join('')+'</div>'+
+   '<div id="supbody">'+supBody()+'</div></div></div>';
+}
+
+/* ---------- shell: routing, banner, rail ---------- */
+const PAGES={overview:pageOverview,twin:pageTwin,analytics:pageAnalytics,alerts:pageAlerts,support:pageSupport};
+function banner(){
+  const b=$('#banner');
+  b.innerHTML=S.mode==='simulation'?'<div class="banner sim"><strong>Simulation mode.</strong><span>Every value is generated in this browser. None of it comes from the ESP32.</span></div>'
+   :'<div class="banner live"><strong>Live device mode.</strong><span>No live data. Nothing has been received, and mock values will not be substituted.</span><button class="btn ghost" data-act="mode-sim">Switch to simulation</button></div>';
+  $('#m-sim').setAttribute('aria-pressed',S.mode==='simulation');$('#m-live').setAttribute('aria-pressed',S.mode==='live');
+}
+function railUpdate(){
+  $('#r-conn').textContent=S.mode==='simulation'?(S.alerts.some(a=>a.key==='stale')?'Simulation (stale)':'Simulation'):'No live data';
+  $('#r-last').textContent=S.last&&S.mode==='simulation'?fmtT(S.last.t):'—';
+}
+function route(){
+  const h=(location.hash||'#overview').slice(1);const p=PAGES[h]?h:'overview';S.page=p;
+  if(TWIN){TWIN.dispose();TWIN=null}
+  $$('.nav a').forEach(a=>a.setAttribute('aria-current',a.dataset.p===p?'page':'false'));
+  $('#view').innerHTML=PAGES[p]();banner();
+  if(p==='overview')mountTwin('stage');
+  if(p==='twin'){mountTwin('stage')}
+  if(p==='overview')ovUpdate();
+  window.scrollTo(0,0);
+}
+function setMode(m){
+  if(S.mode===m)return;S.mode=m;
+  if(m==='live'){S.last=null;logEvent('Switched to Live Device Mode. No data received.','warn')}
+  else{S.sim.frozen=false;S.last=simRow(Date.now());logEvent('Switched to Simulation Mode.','info')}
+  computeAlerts(Date.now());route();
+}
+
+/* ---------- events ---------- */
+document.addEventListener('click',e=>{
+  const t=e.target.closest('[data-act],[data-comp],[data-range],[data-tab],[data-tree],[data-node],[data-sug]');if(!t)return;
+  const d=t.dataset;
+  if(d.comp){selectComp(d.comp);return}
+  if(d.range){S.range=d.range;$$('[data-range]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.range===d.range));$('#an-body').innerHTML=analyticsBody();return}
+  if(d.tab){S.supTab=d.tab;$$('[data-tab]').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===d.tab));$('#supbody').innerHTML=supBody();return}
+  if(d.tree){S.tree={k:d.tree,node:TREES[d.tree].start};$('#supbody').innerHTML=supBody();return}
+  if(d.node){S.tree.node=d.node;$('#supbody').innerHTML=supBody();return}
+  if(d.sug){ask(d.sug);return}
+  switch(d.act){
+    case'mode-sim':setMode('simulation');break;
+    case'mode-live':setMode('live');break;
+    case'reset':if(TWIN)TWIN.reset();break;
+    case'rotate':if(TWIN){const on=TWIN.rotate();t.setAttribute('aria-pressed',on);t.textContent=on?'Stop rotating':'Auto-rotate'}break;
+    case'b-pump':{S.sim.pump=!S.sim.pump;if(S.sim.pump)S.sim.pumpSince=Date.now();logEvent('Simulator: pump commanded '+(S.sim.pump?'on':'off'),'info');$('.bench').parentNode.innerHTML=benchHTML();break}
+    case'b-reset':{S.sim=DEF_SIM();logEvent('Simulator: scenario reset','info');$('.bench').parentNode.innerHTML=benchHTML();break}
+    case'tree-reset':S.tree=null;$('#supbody').innerHTML=supBody();break;
+    case'clearglb':if(TWIN){TWIN.clearModel();$('#stagenote').style.display='';$('#glbstatus').textContent='Placeholder restored.';$('#meshnames').textContent='Mesh names appear after a model loads.'}break;
+    case'applymap':{let m;try{m=JSON.parse($('#mapjson').value)}catch(err){$('#mapres').textContent='Mapping is not valid JSON: '+err.message;break}
+      const res=TWIN?TWIN.setMapping(m):{};$('#mapres').textContent=Object.keys(res).length?'Matched meshes: '+Object.keys(res).map(k=>k+' '+res[k]).join(', ')+'.':'Load a model first.';break}
+    case'copycsv':{const ta=$('#csvbox'),msg=$('#csvmsg');const fb=()=>{ta.focus();ta.select();msg.textContent='Copy was blocked here. The text is selected: press Ctrl+C or Cmd+C.'};
+      try{navigator.clipboard.writeText(ta.value).then(()=>{msg.textContent='CSV copied.'},fb)}catch(err){fb()}break}
+  }
+});
+document.addEventListener('input',e=>{
+  const i=e.target.id;if(!i||!i.startsWith('b-')||S.mode!=='simulation')return;const s=S.sim,v=e.target;
+  if(i==='b-flow'){s.flow=+v.value;$('#b-flow-v').textContent=s.flow.toFixed(1)}
+  else if(i==='b-tds'){s.tdsOffset=+v.value;$('#b-tds-v').textContent=v.value}
+  else if(i==='b-temp'){s.tempOffset=+v.value;$('#b-temp-v').textContent=v.value}
+});
+document.addEventListener('change',e=>{
+  const i=e.target.id,v=e.target;if(!i)return;
+  if(i.startsWith('b-')&&S.mode==='simulation'){const s=S.sim;
+    if(i==='b-dtds'){s.dis.tds=v.value;logEvent('Simulator: TDS sensor set to '+v.value,'info')}
+    else if(i==='b-dtemp'){s.dis.temperature=v.value;logEvent('Simulator: temperature sensor set to '+v.value,'info')}
+    else if(i==='b-dflow'){s.dis.flow=v.value;logEvent('Simulator: flow sensor set to '+v.value,'info')}
+    else if(i==='b-block'){s.blocked=v.checked;logEvent('Simulator: pump on, no flow '+(v.checked?'enabled':'disabled'),'info')}
+    else if(i==='b-ghost'){s.ghost=v.checked;logEvent('Simulator: flow while pump off '+(v.checked?'enabled':'disabled'),'info')}
+    else if(i==='b-fault'){s.pumpFault=v.checked;logEvent('Simulator: pump fault '+(v.checked?'reported':'cleared'),'info')}
+    else if(i==='b-freeze'){s.frozen=v.checked;logEvent('Simulator: telemetry '+(v.checked?'stopped':'resumed'),'info')}
+  }
+  const cm={'c-stale':['staleTimeoutS',1],'c-delay':['startupDelayS',0],'c-flowmin':['flowMinLpm',0],'c-tds':['tdsWarnHigh',0],'c-tmin':['tempMin',-50],'c-tmax':['tempMax',-50]};
+  if(cm[i]&&v.value!==''){CFG[cm[i][0]]=+v.value;computeAlerts(Date.now());alUpdate()}
+  if(i==='glbfile'&&v.files[0]){
+    const f=v.files[0],st=$('#glbstatus');st.textContent='Reading '+f.name+'…';
+    f.arrayBuffer().then(buf=>{TWIN.loadGLB(buf,f.name,(err,names)=>{
+      if(err){st.textContent='Could not load this file: '+(err.message||err)+'. Use a binary .glb.';return}
+      $('#stagenote').style.display='none';
+      st.textContent='Loaded '+f.name+'. Flow animation is off because no pipe route is mapped.';
+      $('#meshnames').innerHTML=names.length?'Mesh names: '+names.slice(0,60).map(n=>'<code class="num">'+esc(n)+'</code>').join(', ')+(names.length>60?' and '+(names.length-60)+' more':''):'This model has no named meshes. Name parts in your CAD or export settings so they can be mapped.';
+    })}).catch(err=>{st.textContent='Could not read the file.'});
+  }
+});
+document.addEventListener('submit',e=>{
+  e.preventDefault();
+  if(e.target.id==='chatform'){const q=$('#chatq');if(q.value.trim()){ask(q.value.trim());q.value=''}}
+  if(e.target.id==='logform'){const d=$('#l-d').value||fmtD(Date.now()).slice(0,10),n=$('#l-n').value.trim();
+    S.log.unshift({d:d,type:$('#l-t').value,note:n||'No note'});try{localStorage.setItem('fv-log',JSON.stringify(S.log.filter(x=>!x.ex)))}catch(err){}
+    $('#supbody').innerHTML=supBody()}
+});
+window.addEventListener('hashchange',route);
+
+/* ---------- loop ---------- */
+function tick(){
+  const now=Date.now();
+  if(S.mode==='simulation'&&!S.sim.frozen){
+    const prev=S.last,r=simRow(now);S.last=r;
+    if(!S.buf.length||now-S.lastStore>=5000){S.buf.push(r);S.lastStore=now;if(S.buf.length>20000)S.buf.shift()}
+    if(r.flow_lpm!=null&&prev)S.vol+=r.flow_lpm*Math.min(5,(now-prev.t)/1000)/60;
+  }
+  computeAlerts(now);railUpdate();
+  const p=S.page;
+  if(p==='overview'){ovUpdate()}else if(p==='twin'){twUpdate()}else if(p==='analytics'){if(S.tickN%5===0)anUpdate()}else if(p==='alerts'){alUpdate()}
+  if(TWIN&&(p==='overview'||p==='twin'))TWIN.update(twinInfo());
+  S.tickN++;
+}
+try{const sv=JSON.parse(localStorage.getItem('fv-log')||'[]');if(Array.isArray(sv))S.log=sv.concat(S.log)}catch(e){}
+$('#r-tz').textContent=TZ;$('#r-dev').textContent=CFG.deviceId;
+S.last=simRow(T0);S.buf.push(S.last);S.lastStore=T0;
+logEvent('Simulator started. Telemetry is generated in this browser.','info');
+computeAlerts(T0);
+route();
+setInterval(tick,1000);
+})();
+</script>

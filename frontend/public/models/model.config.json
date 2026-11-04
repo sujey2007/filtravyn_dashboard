@@ -1,0 +1,13 @@
+{
+  "_help": "Set \"asset\" to a path under /models, for example \"/models/filtravyn.glb\", then list the CAD mesh names for each component id. Nothing is guessed: unmapped parts keep their own colours and the water animation stays off until \"pipeRoute\" is set.",
+  "asset": null,
+  "mapping": {
+    "tank": [],
+    "pump": [],
+    "filter": [],
+    "flowSensor": [],
+    "cell": [],
+    "outlet": []
+  },
+  "pipeRoute": null
+}

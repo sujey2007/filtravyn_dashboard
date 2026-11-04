@@ -1,0 +1,5 @@
+fastapi>=0.115,<1.0
+uvicorn[standard]>=0.30
+pydantic>=2.8
+# Optional: only needed when MQTT_URL is set
+paho-mqtt>=2.1
