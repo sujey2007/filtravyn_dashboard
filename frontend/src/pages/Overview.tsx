@@ -101,7 +101,7 @@ export function Overview() {
           </div>
           <span className="tagline">Architecture: 4 → 16 → 8 → 3 (Dense-ReLU-Softmax) · Latency: 1.2 ms</span>
         </div>
-        <div className="pb" style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 1.2fr) minmax(280px, 2fr)', gap: 20 }}>
+        <div className="pb tinyml-grid">
           {/* Classification result */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '16px', background: 'var(--sheet)', borderRadius: 4, border: '1px solid var(--line2)' }}>
             <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink2)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
