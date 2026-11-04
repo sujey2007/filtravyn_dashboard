@@ -16,6 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from .config import Settings, load_settings
+from .services.chat import ChatRequest, GeminiError, generate_reply
 from .services import diagnostics
 from .services.mqtt_bridge import start_bridge
 from .services.store import Store
@@ -126,6 +127,20 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
     @app.get("/api/health")
     def health():
         return {"status": "ok", "time": iso_z(datetime.now(timezone.utc))}
+
+    @app.post("/api/chat")
+    async def chat(req: ChatRequest):
+        if not cfg.gemini_api_key:
+            raise HTTPException(503, "AI assistant is not configured. Set GEMINI_API_KEY in backend/.env.")
+        if req.messages[-1].role != "user":
+            raise HTTPException(422, "The last chat message must be from the user.")
+        if any(not message.text.strip() for message in req.messages):
+            raise HTTPException(422, "Chat messages cannot be empty.")
+        try:
+            reply = await asyncio.to_thread(generate_reply, cfg.gemini_api_key, cfg.gemini_model, req)
+        except GeminiError as error:
+            raise HTTPException(error.status_code, str(error)) from error
+        return {"reply": reply}
 
     @app.get("/api/device")
     def device(device_id: str = DEFAULT_DEVICE):

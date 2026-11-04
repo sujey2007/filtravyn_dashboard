@@ -2,36 +2,22 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useTelemetry } from '../app/TelemetryContext'
 import { PageHead, Pill } from '../components/ui'
 import { CARE, EXAMPLE_LOG, FAQ, FILTER_STEPS, TREES, type LogEntry } from '../data/support'
-import { fmt } from '../services/status'
-import type { Telemetry } from '../types/telemetry'
+import { api, type ChatMessage, type ChatTelemetry } from '../services/api'
 
 type Tab = 'faq' | 'trouble' | 'filter' | 'care' | 'log'
 const LOG_KEY = 'fv-service-log'
 
-interface Msg { a: boolean; t: string }
-
-function answer(q: string, last: Telemetry | null, mode: string): string {
-  const s = q.toLowerCase()
-  if (/status|now|current|reading/.test(s))
-    return !last
-      ? 'There is no data right now.'
-      : `${mode === 'simulation' ? 'Simulated' : 'Measured'} values: TDS ${last.tds_ppm == null ? 'unavailable' : last.tds_ppm + ' ppm'}, temperature ${last.temperature_c == null ? 'unavailable' : fmt(last.temperature_c) + ' °C'}, flow ${last.flow_lpm == null ? 'unavailable' : fmt(last.flow_lpm, 2) + ' L/min'}, pump ${last.pump_state}.`
-  if (/filter|cartridge|replace/.test(s)) return 'Open the Filter change tab for the steps. Remaining filter life is not estimated here, so compare flow with your baseline.'
-  if (/pump|no flow|flow/.test(s)) return 'Try the "Pump on, no flow" guide in Troubleshooting. Start with tank level and prime, then tubing and cartridge, then flow sensor direction.'
-  if (/tds|safe|drink/.test(s)) return 'TDS measures dissolved ions only. It cannot show that water is safe to drink.'
-  if (/turb/.test(s)) return 'No turbidity sensor is installed, so there is no NTU value to show.'
-  if (/stale|offline|connect/.test(s)) return 'Stale data means no message arrived within the timeout. Check ESP32 power, Wi-Fi and the broker.'
-  if (/model|solidworks|glb|3d|cad/.test(s)) return 'Convert your assembly to GLB with part names kept, set it in model.config.json, then map mesh names to components.'
-  return 'I only have scripted help in this demo. Try: filter, pump, flow, TDS, turbidity, stale or model.'
-}
+type Msg = ChatMessage
 
 export function Support() {
   const { last, mode } = useTelemetry()
   const [tab, setTab] = useState<Tab>('faq')
   const [msgs, setMsgs] = useState<Msg[]>([
-    { a: true, t: 'This is a demo with scripted answers. No AI service is connected. Ask about the filter, pump, flow, TDS, turbidity, stale data or the 3D model.' },
+    { role: 'model', text: 'I can help with the FiltraVyn purifier, dashboard readings, maintenance, and troubleshooting.' },
   ])
   const [q, setQ] = useState('')
+  const [chatError, setChatError] = useState('')
+  const [chatPending, setChatPending] = useState(false)
   const logRef = useRef<HTMLDivElement>(null)
   const [tree, setTree] = useState<{ k: string; node: string } | null>(null)
   const [log, setLog] = useState<LogEntry[]>(() => {
@@ -46,13 +32,47 @@ export function Support() {
 
   useEffect(() => {
     logRef.current?.scrollTo({ top: logRef.current.scrollHeight })
-  }, [msgs])
+  }, [msgs, chatPending, chatError])
 
-  const ask = (text: string) => setMsgs((m) => [...m, { a: false, t: text }, { a: true, t: answer(text, last, mode) }])
+  const ask = async (text: string) => {
+    const question = text.trim()
+    if (!question || chatPending) return
+    const previous = msgs
+    const userMessage: Msg = { role: 'user', text: question }
+    const messages = [...previous.slice(1).slice(-10), userMessage]
+    const telemetry: ChatTelemetry = {
+      mode,
+      tds_ppm: last?.tds_ppm ?? null,
+      temperature_c: last?.temperature_c ?? null,
+      flow_lpm: last?.flow_lpm ?? null,
+      turbidity_ntu: last?.turbidity_ntu ?? null,
+      pump_state: last?.pump_state ?? 'unknown',
+      sensor_status: last?.sensor_status ?? {
+        tds: 'unknown',
+        temperature: 'unknown',
+        flow: 'unknown',
+        turbidity: 'unknown',
+      },
+    }
+    setQ('')
+    setChatError('')
+    setChatPending(true)
+    setMsgs([...previous, userMessage])
+    try {
+      const reply = await api.chat(messages, telemetry)
+      setMsgs((current) => [...current, { role: 'model', text: reply }])
+    } catch (error) {
+      setMsgs(previous)
+      setQ(question)
+      setChatError(error instanceof Error ? error.message : 'Unable to reach the AI assistant.')
+    } finally {
+      setChatPending(false)
+    }
+  }
+
   const submit = (e: FormEvent) => {
     e.preventDefault()
-    if (q.trim()) ask(q.trim())
-    setQ('')
+    void ask(q)
   }
   const addLog = (e: FormEvent) => {
     e.preventDefault()
@@ -72,22 +92,25 @@ export function Support() {
 
   return (
     <>
-      <PageHead title="Support and DIY">Guides for the current prototype, a service log and a scripted demo assistant.</PageHead>
+      <PageHead title="Support and DIY">Guides for the current prototype, a service log, and an AI assistant for purifier-related questions.</PageHead>
       <div className="sup">
         <div className="panel">
-          <div className="ph"><h2>Assistant</h2><Pill kind="info">Demo · scripted</Pill></div>
+          <div className="ph"><h2>Assistant</h2><Pill kind="info">Gemini AI</Pill></div>
           <div className="chatlog" ref={logRef} aria-live="polite">
-            {msgs.map((m, i) => <div key={i} className={'msg ' + (m.a ? 'a' : 'u')}>{m.t}</div>)}
+            {msgs.map((m, i) => <div key={i} className={'msg ' + (m.role === 'model' ? 'a' : 'u')}>{m.text}</div>)}
+            {chatPending && <div className="msg a" role="status">Thinking…</div>}
           </div>
+          {chatError && <div className="chat-error" role="alert">{chatError}</div>}
           <div className="sug" style={{ paddingTop: 10 }}>
             {['Current readings', 'Replace filter', 'No flow', 'Is TDS enough?'].map((s) => (
-              <button key={s} onClick={() => ask(s)}>{s}</button>
+              <button key={s} disabled={chatPending} onClick={() => void ask(s)}>{s}</button>
             ))}
           </div>
           <form className="chatin" onSubmit={submit}>
-            <input type="text" id="chatq" placeholder="Ask a question" autoComplete="off" aria-label="Question" value={q} onChange={(e) => setQ(e.target.value)} />
-            <button className="btn" type="submit">Send</button>
+            <input type="text" id="chatq" placeholder="Ask about your purifier" autoComplete="off" aria-label="Question" maxLength={2000} value={q} onChange={(e) => setQ(e.target.value)} />
+            <button className="btn" type="submit" disabled={chatPending || !q.trim()}>{chatPending ? 'Sending…' : 'Send'}</button>
           </form>
+          <div className="chat-note">AI responses can be inaccurate. TDS alone cannot determine whether water is safe to drink.</div>
         </div>
 
         <div className="panel">

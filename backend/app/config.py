@@ -40,6 +40,8 @@ class Settings:
     mqtt_username: str = ""
     mqtt_password: str = ""
     mqtt_topic: str = "filtravyn/+/telemetry"
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-2.5-flash"
     thresholds: Thresholds = field(default_factory=Thresholds)
 
 
@@ -56,6 +58,8 @@ def load_settings() -> Settings:
         mqtt_username=e.get("MQTT_USERNAME", ""),
         mqtt_password=e.get("MQTT_PASSWORD", ""),
         mqtt_topic=e.get("MQTT_TOPIC", "filtravyn/+/telemetry"),
+        gemini_api_key=e.get("GEMINI_API_KEY", ""),
+        gemini_model=e.get("GEMINI_MODEL", "gemini-2.5-flash"),
         thresholds=Thresholds(
             stale_timeout_s=_f("STALE_TIMEOUT_S", 15),
             startup_delay_s=_f("PUMP_STARTUP_DELAY_S", 10),
